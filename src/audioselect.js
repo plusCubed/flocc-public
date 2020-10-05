@@ -1,6 +1,6 @@
 import React, { Suspense, useCallback, useState } from 'react';
 import usePromise from 'react-promise-suspense';
-import { Option, Select } from './components';
+import { Option, Select } from './ui';
 
 async function getConnectedDevices(type) {
   const devices = await navigator.mediaDevices.enumerateDevices();

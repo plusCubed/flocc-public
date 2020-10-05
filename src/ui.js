@@ -75,3 +75,14 @@ export function Audio({ srcObject, ...rest }) {
   }, [audioEl, srcObject]);
   return <audio ref={(el) => setAudioEl(el)} {...rest} />;
 }
+
+export function Button({ children, ...rest }) {
+  return (
+    <button
+      className="bg-blue-500 hover:bg-blue-700 text-white font-medium py-1 px-2 rounded disabled:opacity-75"
+      {...rest}
+    >
+      {children}
+    </button>
+  );
+}

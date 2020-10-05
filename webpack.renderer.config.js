@@ -1,3 +1,6 @@
+const ReactRefreshPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
+const isDevelopment = process.env.NODE_ENV !== 'production';
+
 const rules = require('./webpack.rules');
 
 rules.push({
@@ -21,4 +24,12 @@ module.exports = {
   module: {
     rules,
   },
+  plugins: [
+    isDevelopment &&
+      new ReactRefreshPlugin({
+        overlay: {
+          sockIntegration: 'whm',
+        },
+      }),
+  ].filter(Boolean),
 };

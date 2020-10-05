@@ -1,14 +1,14 @@
 {
   "name": "flocc",
-  "productName": "flocc",
+  "productName": "Flocc",
   "version": "1.0.0",
   "description": "Flocc",
   "main": ".webpack/main",
   "scripts": {
     "start": "electron-forge start",
-    "package": "electron-forge package",
-    "make": "electron-forge make",
-    "publish": "electron-forge publish",
+    "package": "cross-env NODE_ENV=production electron-forge package",
+    "make": "cross-env NODE_ENV=production electron-forge make",
+    "publish": "cross-env NODE_ENV=production electron-forge publish",
     "lint": "echo \"No linting configured\""
   },
   "keywords": [],
@@ -75,6 +75,8 @@
     "@electron-forge/maker-zip": "6.0.0-beta.53",
     "@electron-forge/plugin-webpack": "6.0.0-beta.53",
     "@marshallofsound/webpack-asset-relocator-loader": "^0.5.0",
+    "@pmmmwh/react-refresh-webpack-plugin": "^0.4.2",
+    "@types/socket.io": "^2.1.11",
     "autoprefixer": "^10.0.1",
     "babel-eslint": "10.x",
     "babel-loader": "^8.1.0",
@@ -93,10 +95,12 @@
     "postcss-loader": "^4.0.2",
     "postcss-preset-env": "^6.7.0",
     "prettier": "^2.1.2",
+    "react-refresh": "^0.8.3",
     "style-loader": "^1.2.1"
   },
   "dependencies": {
     "@getstation/electron-google-oauth2": "^2.1.0",
+    "electron-is-dev": "^1.2.0",
     "electron-positioner": "^4.1.0",
     "electron-squirrel-startup": "^1.0.0",
     "firebase": "^7.21.1",
@@ -105,6 +109,7 @@
     "react-dom": "0.0.0-experimental-94c0244ba",
     "react-promise-suspense": "^0.3.3",
     "reactfire": "^2.0.3",
+    "socket.io-client": "^2.3.1",
     "tailwindcss": "^1.8.10",
     "webrtc-adapter": "^7.7.0"
   },

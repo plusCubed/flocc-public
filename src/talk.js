@@ -1,13 +1,22 @@
-import React, { useCallback, useEffect, useState, Suspense } from 'react';
+import React, {
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import 'webrtc-adapter';
-import {
-  useFirestore,
-  useFirestoreCollection,
-  useFirestoreCollectionData,
-  useUser,
-} from 'reactfire';
+import { useFirestore, useFirestoreCollection, useUser } from 'reactfire';
 
-import { Audio } from './components';
+import { Audio, Button } from './ui';
+import { useSocketListener } from './socket-hooks';
+
+export const RoomState = {
+  NONE: 'NONE',
+  JOINING: 'JOINING',
+  JOINED: 'JOINED',
+  LEAVING: 'LEAVING',
+};
 
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
@@ -28,199 +37,186 @@ const ICE_SERVERS = [
 ];
 
 /**
- * @param collectionRef
- * @param processDoc Returns a promise
- * @param onProcessed
- */
-function useFirestoreProcessQueue(collectionRef, processDoc, onProcessed) {
-  const firestore = useFirestore();
-  /** @type firebase.firestore.QuerySnapshot */
-  const queue = useFirestoreCollection(collectionRef);
-  useEffect(() => {
-    let ignore = false;
-    async function processQueue() {
-      const deleteBatch = firestore.batch();
-      queue.forEach((doc) => {
-        const docData = doc.data();
-        deleteBatch.delete(doc.ref);
-        if (!ignore) {
-          processDoc(docData);
-        }
-      });
-      if (!ignore) {
-        await deleteBatch.commit();
-        if (onProcessed) {
-          onProcessed();
-        }
-      }
-    }
-    processQueue();
-    return () => {
-      ignore = true;
-    };
-  }, [firestore, onProcessed, processDoc, queue]);
-}
-
-/**
  * @param {Object} props
- * @param props.roomId Valid room ID.
+ * @param props.currentRoom Valid non-empty room ID.
  * @param props.micStream
  * @param props.outputDevice
  * @returns {JSX.Element}
  * @constructor
  */
-export function RoomAudio({ roomId, micStream, outputDevice }) {
-  const uid = useUser().uid;
+export function RoomAudio({
+  socket,
+  connected,
+  currentRoom,
+  micStream,
+  outputDevice,
+}) {
+  const user = useUser();
+  const uid = user.uid;
   const firestore = useFirestore();
 
-  // {uid: {connection, stream}}
+  // {uid: {connection, stream, rtcRtpSender}}
   const [connectionsByUid, setConnectionsByUid] = useState({});
+  const sendersByUid = useRef({});
 
-  const createPeerConnection = useCallback(
-    (peerId) => {
-      console.info('Create peer connection to peer', peerId);
-      const connection = new RTCPeerConnection({
-        iceServers: ICE_SERVERS,
-      });
-      registerPeerConnectionListeners(connection);
-      connection.addEventListener('icecandidate', (event) => {
-        console.info('Sending ICE Candidate', peerId);
-        if (event.candidate) {
-          firestore.collection(`rooms/${roomId}/users/${peerId}/icecandidates`).add({
-            uid,
-            candidate: event.candidate.toJSON(),
-          });
+  useEffect(() => {
+    return () => {
+      setConnectionsByUid((connectionsByUid) => {
+        for (const { connection } of Object.values(connectionsByUid)) {
+          connection.close();
         }
+        return {};
       });
-      micStream.getTracks().forEach((track) => {
-        connection.addTrack(track, micStream);
+    };
+  }, []);
+
+  useEffect(() => {
+    const entries = Object.entries(connectionsByUid);
+
+    for (const [peerUid, { connection }] of entries) {
+      const sender = sendersByUid.current[peerUid];
+      if (sender) {
+        console.log(`[${peerUid}] replace mic track`);
+        sender.replaceTrack(micStream.getTracks()[0]).catch((e) => {
+          console.error(`[${peerUid}] replace audio track failed`, e);
+        });
+      } else {
+        console.log(`[${peerUid}] add mic track`);
+        sendersByUid.current[peerUid] = connection.addTrack(
+          micStream.getTracks()[0],
+          micStream
+        );
+      }
+    }
+  }, [connectionsByUid, micStream]);
+
+  const addPeer = useCallback(
+    ({ peerSocketId, peerUid, shouldCreateOffer }) => {
+      function createConnection(peerUid) {
+        console.info('Create peer connection to peer ', peerUid);
+        const connection = new RTCPeerConnection({
+          iceServers: ICE_SERVERS,
+        });
+        registerPeerConnectionListeners(connection);
+        connection.addEventListener('icecandidate', (event) => {
+          console.info(`[${peerUid}] sending ice candidate`);
+          if (event.candidate) {
+            socket.emit('relayICECandidate', {
+              peerUid: peerUid,
+              iceCandidate: event.candidate.toJSON(),
+            });
+          }
+        });
+        // Add mic stream to connection
+        sendersByUid.current[peerUid] = connection.addTrack(
+          micStream.getTracks()[0],
+          micStream
+        );
+        // Listen for remote streams
+        const stream = new MediaStream();
+        connection.addEventListener('track', (event) => {
+          stream.addTrack(event.track, stream);
+        });
+        return { connection, stream };
+      }
+
+      async function sendOffer(peerUid, connection) {
+        const offer = await connection.createOffer();
+        await connection.setLocalDescription(offer);
+
+        console.info(`[${peerUid}] sending offer`);
+        socket.emit('relaySessionDescription', {
+          peerUid: peerUid,
+          sessionDescription: offer.toJSON(),
+        });
+      }
+
+      setConnectionsByUid((connectionsByUid) => {
+        if (peerUid in connectionsByUid) {
+          console.warn(`[${peerUid}] peer already added`);
+          return connectionsByUid;
+        }
+        console.info(`[${peerUid}] adding peer`);
+        const connectionState = createConnection(peerUid);
+        if (shouldCreateOffer) {
+          sendOffer(peerUid, connectionState.connection);
+        }
+        return {
+          ...connectionsByUid,
+          [peerUid]: connectionState,
+        };
       });
-      return connection;
     },
-    [firestore, micStream, roomId, uid]
+    [micStream, socket]
   );
+  useSocketListener(socket, 'addPeer', addPeer);
 
-  const roomUserDocRef = firestore.doc(`rooms/${roomId}/users/${uid}`);
+  const removePeer = useCallback(({ peerUid }) => {
+    setConnectionsByUid((connectionsByUid) => {
+      const connectionsByUidCopy = { ...connectionsByUid };
+      if (peerUid in connectionsByUidCopy) {
+        connectionsByUidCopy[peerUid].connection.close();
+        delete connectionsByUidCopy[peerUid];
+      }
+      return connectionsByUidCopy;
+    });
+  }, []);
+  useSocketListener(socket, 'removePeer', removePeer);
 
-  // A user joins this room: incoming offer (& send answer)
-  const processOffer = useCallback(
-    async ({ uid: peerUid, offer }) => {
-      console.info('Processing offer from peer', peerUid);
-      const connection = createPeerConnection(peerUid);
-
-      const remoteDesc = new RTCSessionDescription(offer);
+  const processSessionDescription = useCallback(
+    async ({ peerSocketId, peerUid, sessionDescription }) => {
+      console.info(
+        `[${peerUid}] processing session description`,
+        sessionDescription
+      );
+      const remoteDesc = new RTCSessionDescription(sessionDescription);
+      if (!(peerUid in connectionsByUid)) {
+        console.error(`[${peerUid}] ERROR: peer uid not added`);
+        return;
+      }
+      const connection = connectionsByUid[peerUid].connection;
       await connection.setRemoteDescription(remoteDesc);
 
-      // Send answer
-      console.info('Send answer to peer', peerUid);
-      const answer = await connection.createAnswer();
-      await connection.setLocalDescription(answer);
-      firestore
-        .collection('rooms')
-        .doc(roomId)
-        .collection('users')
-        .doc(peerUid)
-        .collection('answers')
-        .add({ uid, answer: answer.toJSON() });
-
-      setConnectionsByUid((connectionsByUid) => ({
-        ...connectionsByUid,
-        [peerUid]: { connection, stream: new MediaStream() },
-      }));
+      if (remoteDesc.type === 'offer') {
+        // Send answer
+        console.info(`[${peerUid}] sending answer`);
+        const answer = await connection.createAnswer();
+        await connection.setLocalDescription(answer);
+        socket.emit('relaySessionDescription', {
+          peerUid: peerUid,
+          sessionDescription: answer.toJSON(),
+        });
+      }
     },
-    [createPeerConnection, roomId, firestore, uid]
-  );
-  const handleOffersProcessed = useCallback(() => {
-    console.info('Finished processing all offers');
-  }, []);
-  useFirestoreProcessQueue(
-    roomUserDocRef.collection('offers'),
-    processOffer,
-    handleOffersProcessed
+    [connectionsByUid, socket]
   );
 
-  // After joining a room: answers return from the other users
-  const processAnswers = useCallback(
-    async ({ uid: peerUid, answer }) => {
-      console.info('Processing answer from peer', peerUid);
-      const remoteDesc = new RTCSessionDescription(answer);
-      await connectionsByUid[peerUid].connection.setRemoteDescription(
-        remoteDesc
-      );
-    },
-    [connectionsByUid]
-  );
-  const handleAnswersProcessed = useCallback(() => {
-    console.info('Finished processing all answers');
-  }, []);
-  useFirestoreProcessQueue(
-    roomUserDocRef.collection('answers'),
-    processAnswers,
-    handleAnswersProcessed
-  );
+  useSocketListener(socket, 'sessionDescription', processSessionDescription);
 
-  // Process ice candidates
-  const processIceCandidates = useCallback(
-    async ({ uid: peerUid, candidate }) => {
-      console.info('Processing ice candidate from peer', peerUid);
+  const processIceCandidate = useCallback(
+    async ({ peerSocketId, peerUid, iceCandidate }) => {
+      console.info(`[${peerUid}] processing ice candidate`, iceCandidate);
+      if (!(peerUid in connectionsByUid)) {
+        console.error(`[${peerUid}] ERROR: peer uid not added`);
+        return;
+      }
       try {
-        await connectionsByUid[peerUid].connection.addIceCandidate(candidate);
+        await connectionsByUid[peerUid].connection.addIceCandidate(
+          new RTCIceCandidate(iceCandidate)
+        );
       } catch (e) {
         console.error('Error adding received ice candidate', e);
       }
     },
     [connectionsByUid]
   );
-  const handleIceCandidatesProcessed = useCallback(() => {
-    console.info('Finished processing ICE candidates');
-  }, []);
-  useFirestoreProcessQueue(
-    roomUserDocRef.collection('icecandidates'),
-    processIceCandidates,
-    handleIceCandidatesProcessed
-  );
-
-  // Join room when room ID changes
-  useEffect(() => {
-    const joinRoom = async () => {
-      console.info('Joining room', roomId);
-      const currentRoomDocRef = firestore.collection('rooms').doc(roomId);
-
-      // Send offer to all other users
-      const usersSnapshot = await currentRoomDocRef.collection('users').get();
-      const otherUserRefs = [];
-      usersSnapshot.forEach((doc) => {
-        if (doc.id !== uid) {
-          otherUserRefs.push(doc.ref);
-        }
-      });
-      await Promise.all(
-        otherUserRefs.map(async (userRef) => {
-          const peerUid = userRef.id;
-          const connection = createPeerConnection(peerUid);
-
-          const offer = await connection.createOffer();
-          await connection.setLocalDescription(offer);
-          await userRef
-            .collection('offers')
-            .add({ uid, offer: offer.toJSON() });
-
-          console.info('Sending offer to peer', peerUid);
-          setConnectionsByUid((connectionsByUid) => ({
-            ...connectionsByUid,
-            [peerUid]: { connection, stream: new MediaStream() },
-          }));
-        })
-      );
-    };
-    joinRoom();
-  }, [roomId, createPeerConnection, firestore, uid]);
+  useSocketListener(socket, 'iceCandidate', processIceCandidate);
 
   return (
     <div>
       {Object.entries(connectionsByUid).map(
         ([peerUid, { connection, stream }]) => (
-          <Audio key={peerUid} controls autoPlay srcObject={stream} />
+          <Audio key={peerUid} autoPlay srcObject={stream} />
         )
       )}
     </div>
@@ -238,55 +234,55 @@ function RoomUsers({ roomId }) {
   const userIds = useFirestoreCollectionDocIds(
     useFirestore().collection(`rooms/${roomId}/users`)
   );
-  const [userDocs, setUserDocs] = useState({});
+  const { uid, displayName } = useUser();
+  const [otherUserDocs, setOtherUserDocs] = useState({});
   useEffect(() => {
     let ignore = false;
-    firestore.runTransaction(async (transaction) => {
-      /** @type firebase.firestore.DocumentSnapshot[] */
+    async function updateUserDocs() {
       const docSnapshots = await Promise.all(
-        userIds.map((userId) => {
-          return transaction.get(firestore.doc(`users/${userId}`));
-        })
+        userIds
+          .filter((id) => id !== uid)
+          .map((userId) => firestore.doc(`users/${userId}`).get())
       );
-      const newUserDocs = {};
+      const userDocs = {};
       for (const snapshot of docSnapshots) {
-        newUserDocs[snapshot.id] = snapshot.data();
+        userDocs[snapshot.id] = snapshot.data();
       }
       if (!ignore) {
-        setUserDocs(newUserDocs);
+        setOtherUserDocs(userDocs);
       }
-    });
-
+    }
+    updateUserDocs();
     return () => {
       ignore = true;
     };
-  }, [firestore, userIds]);
+  }, [firestore, uid, userIds]);
+
+  const renderedUsers = otherUserDocs;
+  if (userIds.includes(uid)) {
+    renderedUsers[uid] = { displayName };
+  }
 
   return (
     <div>
-      {Object.entries(userDocs).map(([uid, userDoc]) => (
+      {Object.entries(renderedUsers).map(([uid, userDoc]) => (
         <div key={uid}>{userDoc.displayName}</div>
       ))}
     </div>
   );
 }
 
-export function RoomSelector() {
+export function RoomSelector({ currentRoom, setCurrentRoom, leaveRoom }) {
   const firestore = useFirestore();
   const uid = useUser().uid;
 
-  const roomIds = useFirestoreCollectionDocIds(firestore.collection('rooms'));
+  const allRoomIds = useFirestoreCollectionDocIds(
+    firestore.collection('rooms')
+  );
 
   const handleJoinRoom = async (id) => {
-    // Add this user to room users
-    await firestore
-      .collection('rooms')
-      .doc(id)
-      .collection('users')
-      .doc(uid)
-      .set({});
-    // Set room for this user
-    await firestore.collection('users').doc(uid).set({ room: id });
+    setCurrentRoom({ id, state: RoomState.JOINING });
+    firestore.collection('rooms').doc(id).collection('users').doc(uid).set({});
   };
 
   const handleCreateRoom = async () => {
@@ -298,28 +294,32 @@ export function RoomSelector() {
     await handleJoinRoom(id);
   };
 
+  const handleLeaveRoom = () => {
+    leaveRoom();
+  };
+
+  const transitioning =
+    currentRoom.state === RoomState.JOINING ||
+    currentRoom.state === RoomState.LEAVING;
   return (
     <div>
-      {roomIds.map((id) => (
+      {allRoomIds.map((id) => (
         <div key={id} className="border border-solid border-gray-700 rounded">
-          <Suspense fallback={<div>Loading...</div>}>
+          <Suspense fallback={null}>
             <RoomUsers roomId={id} />
           </Suspense>
-          <button
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-            key={id}
-            onClick={() => handleJoinRoom(id)}
-          >
-            Join room
-          </button>
+          {currentRoom.state === RoomState.JOINED && currentRoom.id === id ? (
+            <Button onClick={() => handleLeaveRoom(id)}>Leave room</Button>
+          ) : (
+            <Button onClick={() => handleJoinRoom(id)} disabled={transitioning}>
+              Join room
+            </Button>
+          )}
         </div>
       ))}
-      <button
-        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-        onClick={handleCreateAndJoinRoom}
-      >
+      <Button onClick={handleCreateAndJoinRoom} disabled={transitioning}>
         New room
-      </button>
+      </Button>
     </div>
   );
 }
