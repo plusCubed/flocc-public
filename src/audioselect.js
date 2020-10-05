@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import usePromise from 'react-promise-suspense';
 import { Option, Select } from './ui';
 
@@ -10,13 +10,12 @@ async function getConnectedDevices(type) {
 function AudioSelect({ kind, onDeviceChange }) {
   const devices = usePromise(getConnectedDevices, [kind]);
   const [selected, setSelected] = useState(devices[0].deviceId);
-  const handleSelectChange = useCallback(
-    (event) => {
-      setSelected(event.target.value);
-      onDeviceChange(event.target.value);
-    },
-    [onDeviceChange]
-  );
+  const handleSelectChange = useCallback((event) => {
+    setSelected(event.target.value);
+  }, []);
+  useEffect(() => {
+    onDeviceChange(selected);
+  }, [onDeviceChange, selected]);
   return (
     <Select value={selected} onChange={handleSelectChange}>
       {devices.map((input) => (

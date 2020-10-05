@@ -6,10 +6,16 @@ import React, {
   useState,
 } from 'react';
 import 'webrtc-adapter';
-import { useFirestore, useFirestoreCollection, useUser } from 'reactfire';
+import {
+  useDatabase,
+  useDatabaseListData,
+  useDatabaseObjectData,
+  useUser,
+} from 'reactfire';
 
 import { Audio, Button } from './ui';
 import { useSocketListener } from './socket-hooks';
+import usePromise from 'react-promise-suspense';
 
 export const RoomState = {
   NONE: 'NONE',
@@ -38,25 +44,15 @@ const ICE_SERVERS = [
 
 /**
  * @param {Object} props
- * @param props.currentRoom Valid non-empty room ID.
  * @param props.micStream
  * @param props.outputDevice
  * @returns {JSX.Element}
  * @constructor
  */
-export function RoomAudio({
-  socket,
-  connected,
-  currentRoom,
-  micStream,
-  outputDevice,
-}) {
-  const user = useUser();
-  const uid = user.uid;
-  const firestore = useFirestore();
-
+export function RoomAudio({ socket, currentRoom, micStream, outputDevice }) {
   // {uid: {connection, stream, rtcRtpSender}}
   const [connectionsByUid, setConnectionsByUid] = useState({});
+  const [connectionStateByUid, setConnectionStateByUid] = useState({});
   const sendersByUid = useRef({});
 
   useEffect(() => {
@@ -107,6 +103,14 @@ export function RoomAudio({
             });
           }
         });
+        connection.addEventListener('connectionstatechange', () => {
+          const state = connection.connectionState;
+          console.log(`Connection state change: ${state}`);
+          setConnectionStateByUid((connectionStateByUid) => ({
+            ...connectionStateByUid,
+            [peerUid]: state,
+          }));
+        });
         // Add mic stream to connection
         sendersByUid.current[peerUid] = connection.addTrack(
           micStream.getTracks()[0],
@@ -137,13 +141,13 @@ export function RoomAudio({
           return connectionsByUid;
         }
         console.info(`[${peerUid}] adding peer`);
-        const connectionState = createConnection(peerUid);
+        const connectionContext = createConnection(peerUid);
         if (shouldCreateOffer) {
-          sendOffer(peerUid, connectionState.connection);
+          sendOffer(peerUid, connectionContext.connection);
         }
         return {
           ...connectionsByUid,
-          [peerUid]: connectionState,
+          [peerUid]: connectionContext,
         };
       });
     },
@@ -166,7 +170,7 @@ export function RoomAudio({
   const processSessionDescription = useCallback(
     async ({ peerSocketId, peerUid, sessionDescription }) => {
       console.info(
-        `[${peerUid}] processing session description`,
+        `[${peerUid}] received session description`,
         sessionDescription
       );
       const remoteDesc = new RTCSessionDescription(sessionDescription);
@@ -195,7 +199,7 @@ export function RoomAudio({
 
   const processIceCandidate = useCallback(
     async ({ peerSocketId, peerUid, iceCandidate }) => {
-      console.info(`[${peerUid}] processing ice candidate`, iceCandidate);
+      console.info(`[${peerUid}] received ice candidate`);
       if (!(peerUid in connectionsByUid)) {
         console.error(`[${peerUid}] ERROR: peer uid not added`);
         return;
@@ -216,82 +220,81 @@ export function RoomAudio({
     <div>
       {Object.entries(connectionsByUid).map(
         ([peerUid, { connection, stream }]) => (
-          <Audio key={peerUid} autoPlay srcObject={stream} />
+          <div key={peerUid}>
+            <div>
+              {peerUid}: {connectionStateByUid[peerUid]}
+            </div>
+            <Audio autoPlay srcObject={stream} sinkId={outputDevice} />
+          </div>
         )
       )}
     </div>
   );
 }
 
-function useFirestoreCollectionDocIds(collectionRef) {
-  /** @type firebase.firestore.QuerySnapshot */
-  const snapshot = useFirestoreCollection(collectionRef);
-  return snapshot.docs.map((docSnapshot) => docSnapshot.id);
+/**
+ * @param {firebase.database.Reference} ref
+ * @param childKeys
+ */
+function useDatabaseObjectDataPartial(ref, childKeys) {
+  async function getPartial(ref, keys) {
+    /** @type firebase.database.DataSnapshot[] */
+    const docSnapshots = await Promise.all(
+      keys.map((key) => ref.child(key).once('value'))
+    );
+    const partial = {};
+    for (const snapshot of docSnapshots) {
+      partial[snapshot.key] = snapshot.val();
+    }
+    return partial;
+  }
+
+  return usePromise(getPartial, [ref, childKeys]);
 }
 
 function RoomUsers({ roomId }) {
-  const firestore = useFirestore();
-  const userIds = useFirestoreCollectionDocIds(
-    useFirestore().collection(`rooms/${roomId}/users`)
+  const database = useDatabase();
+  const roomUsers = useDatabaseObjectData(
+    database.ref(`rooms/${roomId}/users`)
   );
-  const { uid, displayName } = useUser();
-  const [otherUserDocs, setOtherUserDocs] = useState({});
-  useEffect(() => {
-    let ignore = false;
-    async function updateUserDocs() {
-      const docSnapshots = await Promise.all(
-        userIds
-          .filter((id) => id !== uid)
-          .map((userId) => firestore.doc(`users/${userId}`).get())
-      );
-      const userDocs = {};
-      for (const snapshot of docSnapshots) {
-        userDocs[snapshot.id] = snapshot.data();
-      }
-      if (!ignore) {
-        setOtherUserDocs(userDocs);
-      }
-    }
-    updateUserDocs();
-    return () => {
-      ignore = true;
-    };
-  }, [firestore, uid, userIds]);
-
-  const renderedUsers = otherUserDocs;
-  if (userIds.includes(uid)) {
-    renderedUsers[uid] = { displayName };
-  }
+  const userIds = Object.keys(roomUsers);
+  const userDocs = useDatabaseObjectDataPartial(database.ref('users'), userIds);
 
   return (
     <div>
-      {Object.entries(renderedUsers).map(([uid, userDoc]) => (
+      {Object.entries(userDocs).map(([uid, userDoc]) => (
         <div key={uid}>{userDoc.displayName}</div>
       ))}
     </div>
   );
 }
 
+function makeid(length) {
+  var result = '';
+  var characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+  var charactersLength = characters.length;
+  for (var i = 0; i < length; i++) {
+    result += characters.charAt(Math.floor(Math.random() * charactersLength));
+  }
+  return result;
+}
+
 export function RoomSelector({ currentRoom, setCurrentRoom, leaveRoom }) {
-  const firestore = useFirestore();
+  const database = useDatabase();
   const uid = useUser().uid;
 
-  const allRoomIds = useFirestoreCollectionDocIds(
-    firestore.collection('rooms')
-  );
+  const allRooms = useDatabaseObjectData(database.ref('rooms'));
+  const allRoomIds = Object.keys(allRooms);
 
   const handleJoinRoom = async (id) => {
     setCurrentRoom({ id, state: RoomState.JOINING });
-    firestore.collection('rooms').doc(id).collection('users').doc(uid).set({});
-  };
-
-  const handleCreateRoom = async () => {
-    return await firestore.collection('rooms').add({});
+    await database.ref(`rooms/${id}/users/${uid}`).set(true);
   };
 
   const handleCreateAndJoinRoom = async () => {
-    const id = (await handleCreateRoom()).id;
-    await handleJoinRoom(id);
+    const roomRef = database.ref(`rooms/${makeid(10)}`);
+    setCurrentRoom({ id: roomRef.key, state: RoomState.JOINING });
+    await roomRef.set({ users: { [uid]: true } });
   };
 
   const handleLeaveRoom = () => {
@@ -305,7 +308,7 @@ export function RoomSelector({ currentRoom, setCurrentRoom, leaveRoom }) {
     <div>
       {allRoomIds.map((id) => (
         <div key={id} className="border border-solid border-gray-700 rounded">
-          <Suspense fallback={null}>
+          <Suspense fallback={<div>Loading...</div>}>
             <RoomUsers roomId={id} />
           </Suspense>
           {currentRoom.state === RoomState.JOINED && currentRoom.id === id ? (
@@ -329,10 +332,6 @@ function registerPeerConnectionListeners(peerConnection) {
     console.log(
       `ICE gathering state changed: ${peerConnection.iceGatheringState}`
     );
-  });
-
-  peerConnection.addEventListener('connectionstatechange', () => {
-    console.log(`Connection state change: ${peerConnection.connectionState}`);
   });
 
   peerConnection.addEventListener('signalingstatechange', () => {

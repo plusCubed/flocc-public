@@ -1,5 +1,5 @@
 import React, { Suspense, useCallback, useEffect, useState } from 'react';
-import { useAuth, useFirestore, useUser } from 'reactfire';
+import { useAuth, useDatabase, useUser } from 'reactfire';
 import { RoomAudio, RoomSelector, RoomState } from './talk';
 import { useSocket, useSocketListener } from './socket-hooks';
 import { AudioSelector } from './audioselect';
@@ -16,14 +16,22 @@ function openUserMedia(device) {
   });
 }
 
+function ServerDisconnnected() {
+  return (
+    <div className="h-screen flex items-center justify-center">
+      Connecting to server...
+    </div>
+  );
+}
+
 export function Home() {
-  const firestore = useFirestore();
+  const database = useDatabase();
   const user = useUser();
   const { displayName, email, photoURL, uid } = user;
 
   useEffect(() => {
-    firestore.doc(`users/${uid}`).set({ displayName }, { merge: true });
-  }, [displayName, firestore, uid]);
+    database.ref(`users/${uid}/displayName`).set(displayName);
+  }, [database, displayName, uid]);
 
   const [inputDevice, setInputDevice] = useState('');
   const [outputDevice, setOutputDevice] = useState('');
@@ -73,44 +81,49 @@ export function Home() {
   const auth = useAuth();
   const leaveRoom = useCallback(async () => {
     setCurrentRoom({ id: '', state: RoomState.LEAVING });
-    await firestore.doc(`rooms/${currentRoom.id}/users/${uid}`).delete();
-  }, [currentRoom.id, firestore, uid]);
+    await database.ref(`rooms/${currentRoom.id}/users/${uid}`).remove();
+  }, [currentRoom.id, database, uid]);
   const signOut = useCallback(async () => {
     await leaveRoom();
     await auth.signOut();
   }, [auth, leaveRoom]);
 
   return (
-    <div>
-      <div className="font-medium p-2">{displayName}</div>
-      <AudioSelector
-        kind="audioinput"
-        icon={<MicrophoneIcon className="w-4 h-4 mr-1" />}
-        onDeviceChange={setInputDevice}
-      />
-      <AudioSelector
-        kind="audiooutput"
-        icon={<SpeakerIcon className="w-4 h-4 mr-1" />}
-        onDeviceChange={setOutputDevice}
-      />
-      {!micStream ? <div>Loading microphone...</div> : null}
-      {currentRoom.state === RoomState.JOINED && micStream ? (
-        <Suspense fallback={null}>
-          <RoomAudio
-            socket={socket}
-            connected={connected}
-            currentRoom={currentRoom.id}
-            micStream={micStream}
-            outputDevice={outputDevice}
+    <>
+      {!connected ? (
+        <ServerDisconnnected />
+      ) : (
+        <>
+          <div className="font-medium p-2">{displayName}</div>
+          <AudioSelector
+            kind="audioinput"
+            icon={<MicrophoneIcon className="w-4 h-4 mr-1" />}
+            onDeviceChange={setInputDevice}
           />
-        </Suspense>
-      ) : null}
-      <RoomSelector
-        currentRoom={currentRoom}
-        setCurrentRoom={setCurrentRoom}
-        leaveRoom={leaveRoom}
-      />
-      <Button onClick={signOut}>Sign out</Button>
-    </div>
+          <AudioSelector
+            kind="audiooutput"
+            icon={<SpeakerIcon className="w-4 h-4 mr-1" />}
+            onDeviceChange={setOutputDevice}
+          />
+          {!micStream ? <div>Loading microphone...</div> : null}
+          {currentRoom.id && micStream ? (
+            <Suspense fallback={<div>Connecting...</div>}>
+              <RoomAudio
+                socket={socket}
+                currentRoom={currentRoom.id}
+                micStream={micStream}
+                outputDevice={outputDevice}
+              />
+            </Suspense>
+          ) : null}
+          <RoomSelector
+            currentRoom={currentRoom}
+            setCurrentRoom={setCurrentRoom}
+            leaveRoom={leaveRoom}
+          />
+          <Button onClick={signOut}>Sign out</Button>
+        </>
+      )}
+    </>
   );
 }

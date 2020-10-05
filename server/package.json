@@ -4,6 +4,7 @@
   "description": "",
   "main": "server.js",
   "scripts": {
+    "start-prod": "cross-env NODE_ENV=production node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
@@ -12,6 +13,7 @@
     "socket.io": "^2.2.0"
   },
   "devDependencies": {
-    "@types/socket.io": "^2.1.11"
+    "@types/socket.io": "^2.1.11",
+    "cross-env": "^7.0.2"
   }
 }

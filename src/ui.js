@@ -66,13 +66,33 @@ export function Option({ children, className, ...rest }) {
   );
 }
 
-export function Audio({ srcObject, ...rest }) {
+export function Audio({ srcObject, sinkId, ...rest }) {
   const [audioEl, setAudioEl] = useState(null);
   useEffect(() => {
     if (audioEl) {
       audioEl.srcObject = srcObject;
     }
   }, [audioEl, srcObject]);
+  useEffect(() => {
+    if (!audioEl || !sinkId) return;
+    if (typeof audioEl.sinkId === 'undefined') {
+      console.warn('Browser does not support output device selection');
+    }
+    audioEl
+      .setSinkId(sinkId)
+      .then(() => {
+        console.log(`Success, audio output device attached: ${sinkId}`);
+      })
+      .catch((error) => {
+        let errorMessage = error;
+        if (error.name === 'SecurityError') {
+          errorMessage = `You need to use HTTPS for selecting audio output device: ${error}`;
+        }
+        console.error(errorMessage);
+        // TODO: Jump back to first output device in the list as it's the default.
+      });
+  }, [audioEl, sinkId, srcObject]);
+
   return <audio ref={(el) => setAudioEl(el)} {...rest} />;
 }
 

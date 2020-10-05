@@ -2,6 +2,7 @@ import {
   AuthCheck,
   FirebaseAppProvider,
   preloadFirestore,
+  preloadDatabase,
   useAuth,
 } from 'reactfire';
 import firebaseConfig from './config/firebaseConfig';
@@ -18,20 +19,15 @@ function Loading() {
   );
 }
 
+const isDevelopment =
+  (electron && require('electron-is-dev')) ||
+  (!electron && window.location.hostname === 'localhost');
+
+/*if (isDevelopment) {
+  firebaseConfig.databaseURL = 'http://localhost:9000/?ns=floccapp';
+}*/
 function App() {
-  preloadFirestore({
-    setup: (firestore) => {
-      if (
-        (electron && require('electron-is-dev')) ||
-        (!electron && window.location.hostname === 'localhost')
-      ) {
-        firestore().settings({
-          host: 'localhost:8080',
-          ssl: false,
-        });
-      }
-    },
-  });
+  preloadDatabase();
 
   const auth = useAuth();
   useEffect(() => {

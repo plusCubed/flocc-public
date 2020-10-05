@@ -6,17 +6,19 @@ const server = http.createServer(app);
 const io = require('socket.io').listen(server);
 const admin = require('firebase-admin');
 
+const isDevelopment = process.env.NODE_ENV !== 'production';
+
 const serviceAccount = require('./service-account.json');
+
+let databaseURL = 'https://floccapp.firebaseio.com';
+/*if (isDevelopment) {
+  databaseURL = 'http://localhost:9000/?ns=floccapp';
+}*/
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  databaseURL: 'https://floccapp.firebaseio.com',
+  databaseURL,
 });
-
-// TODO: Only for dev
-admin.firestore().settings({
-  host: 'localhost:8080',
-  ssl: false,
-});
+admin.database().ref('rooms').remove();
 
 // Get PORT from env variable else assign 3000 for development
 const PORT = process.env.PORT || 3010;
@@ -47,7 +49,7 @@ io.on('connection', (socket) => {
   function leaveRoom(room) {
     console.log(`[${socket.id}] leave room ${room}`);
     socket.leave(room);
-    const firestore = admin.firestore();
+    const database = admin.database();
 
     const uid = socket.user.uid;
     socket.to(room).emit('removePeer', {
@@ -58,21 +60,18 @@ io.on('connection', (socket) => {
 
     // Note: Don't use socket anymore, might not exist if disconnecting
     return (async () => {
-      await firestore.doc(`rooms/${room}/users/${uid}`).delete();
-      // Delete room if no one is there anymore
-      const roomUsers = await firestore
-        .collection(`rooms/${room}/users`)
-        .listDocuments();
-      if (roomUsers.length === 0) {
-        await firestore.doc(`rooms/${room}`).delete();
-      }
+      try {
+        await database.ref(`rooms/${room}/users/${uid}`).remove();
+      } catch (ignored) {}
     })();
   }
 
+  function getRooms() {
+    return Object.keys(socket.rooms).filter((room) => room !== socket.id);
+  }
+
   function leaveAllRooms() {
-    const rooms = Object.keys(socket.rooms).filter(
-      (room) => room !== socket.id
-    );
+    const rooms = getRooms();
     if (rooms.length > 1) {
       console.warn(`[${socket.id}] socket in more than 1 room`);
     }
@@ -93,9 +92,12 @@ io.on('connection', (socket) => {
     console.log(`[${socket.id}] join `, msg);
     const { room } = msg;
 
-    socket.join(room);
+    if (getRooms().length > 0) {
+      await leaveAllRooms();
+    }
 
-    socket.emit('joined', { room });
+    socket.join(room);
+    socket.emit(`joined`, { room });
 
     if (!roomToSockets[room]) roomToSockets[room] = new Set();
 
@@ -104,6 +106,7 @@ io.on('connection', (socket) => {
       return;
     }
 
+    console.log(`[${room}] add peer`, socket.id);
     socket.to(room).emit('addPeer', {
       peerSocketId: socket.id,
       peerUid: socket.user.uid,
@@ -111,7 +114,7 @@ io.on('connection', (socket) => {
     });
     const peerSockets = roomToSockets[room];
     for (const peerSocket of peerSockets) {
-      console.log('add peer', peerSocket.id);
+      console.log(`[${socket.id}] add peer`, peerSocket.id);
       socket.emit('addPeer', {
         peerSocketId: peerSocket.id,
         peerUid: peerSocket.user.uid,
@@ -132,6 +135,13 @@ io.on('connection', (socket) => {
   socket.on('relayICECandidate', (msg) => {
     const { peerUid, iceCandidate } = msg;
     const peerSocket = uidToSocket[peerUid];
+    if (!peerSocket) {
+      console.error(
+        `[${socket.id}] relay ICE-candidate failed, invalid peerUid`,
+        peerUid
+      );
+      return;
+    }
     console.log(`[${socket.id}] relay ICE-candidate to [${peerSocket.id}]`);
 
     socket.to(peerSocket.id).emit('iceCandidate', {
@@ -144,6 +154,14 @@ io.on('connection', (socket) => {
   socket.on('relaySessionDescription', (msg) => {
     const { peerUid, sessionDescription } = msg;
     const peerSocket = uidToSocket[peerUid];
+    if (!peerSocket) {
+      console.error(
+        `[${socket.id}] relay SessionDescription failed, invalid peerUid`,
+        peerUid
+      );
+      return;
+    }
+
     console.log(
       `[${socket.id}] relay SessionDescription to [${peerSocket.id}]`,
       sessionDescription.type
