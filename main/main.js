@@ -11,6 +11,8 @@ if (require('electron-squirrel-startup')) {
   app.quit();
 }
 
+let tray = null;
+
 const createWindow = () => {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
@@ -21,6 +23,7 @@ const createWindow = () => {
       enableRemoteModule: true,
     },
   });
+  mainWindow.setMenuBarVisibility(false);
 
   const positioner = new Positioner(mainWindow);
   positioner.move('bottomRight');
@@ -33,8 +36,8 @@ const createWindow = () => {
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   }
 
-  const Tray = new TrayGenerator(mainWindow);
-  Tray.createTray();
+  tray = new TrayGenerator(mainWindow);
+  tray.createTray();
 };
 
 // This method will be called when Electron has finished

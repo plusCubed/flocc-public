@@ -1,3 +1,4 @@
+import React, { Suspense, useEffect } from 'react';
 import {
   AuthCheck,
   FirebaseAppProvider,
@@ -5,17 +6,18 @@ import {
   preloadDatabase,
   useAuth,
 } from 'reactfire';
-import firebaseConfig from './config/firebaseConfig';
-import React, { Suspense, useEffect } from 'react';
 import isElectron from 'is-electron';
+
+import firebaseConfig from './config/firebaseConfig';
 import { SignInForm } from './signin';
 import { Home } from './home';
+import { ErrorBoundary } from './error';
 
 const electron = isElectron();
 
-function Loading() {
+function ScreenCenter({ children }) {
   return (
-    <div className="h-screen flex items-center justify-center">Loading...</div>
+    <div className="h-screen flex items-center justify-center">{children}</div>
   );
 }
 
@@ -47,10 +49,12 @@ function App() {
 
 export function AppWrapper() {
   return (
-    <FirebaseAppProvider firebaseConfig={firebaseConfig}>
-      <Suspense fallback={<Loading />}>
-        <App />
-      </Suspense>
-    </FirebaseAppProvider>
+    <ErrorBoundary fallback={<ScreenCenter>An error occurred</ScreenCenter>}>
+      <FirebaseAppProvider firebaseConfig={firebaseConfig}>
+        <Suspense fallback={<ScreenCenter>Loading...</ScreenCenter>}>
+          <App />
+        </Suspense>
+      </FirebaseAppProvider>
+    </ErrorBoundary>
   );
 }

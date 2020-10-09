@@ -18,10 +18,71 @@ function openUserMedia(device) {
 
 function ServerDisconnnected() {
   return (
-    <div className="h-screen flex items-center justify-center">
+    <div className="w-full h-full flex items-center justify-center">
       Connecting to server...
     </div>
   );
+}
+
+function useDeviceStream(inputDevice) {
+  const [stream, setStream] = useState(null);
+  useEffect(() => {
+    openUserMedia(inputDevice)
+      .then((stream) => {
+        console.log('Device stream opened');
+        setStream(stream);
+      })
+      .catch((e) => {
+        console.error('Mic stream error', e);
+        alert(e);
+      });
+  }, [inputDevice]);
+  return stream;
+}
+
+function useSocketRoom(socket, connected) {
+  const database = useDatabase();
+  const uid = useUser().uid;
+
+  const [roomId, setRoomId] = useState('');
+  const [roomState, setRoomState] = useState(RoomState.NONE);
+  useEffect(() => {
+    if (!socket || !connected) return;
+
+    if (roomId) {
+      socket.emit('join', { room: roomId });
+    } else {
+      socket.emit('leave');
+    }
+  }, [connected, roomId, socket]);
+
+  const handleJoined = useCallback(({ room }) => {
+    setRoomId(room);
+    setRoomState(RoomState.JOINED);
+    console.log('JOINED');
+  }, []);
+  useSocketListener(socket, 'joined', handleJoined);
+
+  const handleLeft = useCallback(() => {
+    setRoomId('');
+    setRoomState(RoomState.NONE);
+    console.log('LEFT');
+  }, []);
+  useSocketListener(socket, 'left', handleLeft);
+
+  const joinRoom = async (id) => {
+    console.info('Joining room', roomId);
+    setRoomId(id);
+    setRoomState(RoomState.JOINING);
+    await database.ref(`rooms/${id}/users/${uid}`).set(true);
+  };
+  const leaveRoom = useCallback(async () => {
+    console.info('Leaving room', roomId);
+    setRoomId('');
+    setRoomState(RoomState.LEAVING);
+    await database.ref(`rooms/${roomId}/users/${uid}`).remove();
+  }, [roomId, database, uid]);
+  return { roomId, roomState, joinRoom, leaveRoom };
 }
 
 export function Home() {
@@ -36,65 +97,33 @@ export function Home() {
   const [inputDevice, setInputDevice] = useState('');
   const [outputDevice, setOutputDevice] = useState('');
 
-  const [currentRoom, setCurrentRoom] = useState({
-    id: '',
-    state: RoomState.NONE,
-  });
+  const { socket, connected } = useSocket(SOCKET_ENDPOINT, user);
 
-  const [socket, connected] = useSocket(SOCKET_ENDPOINT, user);
-  useEffect(() => {
-    if (!socket || !connected) return;
+  const { roomId, roomState, joinRoom, leaveRoom } = useSocketRoom(
+    socket,
+    connected
+  );
 
-    if (currentRoom.id) {
-      console.info('Joining room', currentRoom.id);
-      socket.emit('join', { room: currentRoom.id });
-    } else {
-      socket.emit('leave');
-    }
-  }, [connected, currentRoom.id, socket]);
-
-  const handleJoined = useCallback(({ room }) => {
-    setCurrentRoom({ id: room, state: RoomState.JOINED });
-    console.log('JOINED');
-  }, []);
-  useSocketListener(socket, 'joined', handleJoined);
-
-  const handleLeft = useCallback(() => {
-    setCurrentRoom({ id: '', state: RoomState.NONE });
-    console.log('LEFT');
-  }, []);
-  useSocketListener(socket, 'left', handleLeft);
-
-  const [micStream, setMicStream] = useState(null);
-  useEffect(() => {
-    openUserMedia(inputDevice)
-      .then((stream) => {
-        console.log('Mic stream opened');
-        setMicStream(stream);
-      })
-      .catch((e) => {
-        console.error('Mic stream error', e);
-        alert(e);
-      });
-  }, [inputDevice]);
+  const micStream = useDeviceStream(inputDevice);
 
   const auth = useAuth();
-  const leaveRoom = useCallback(async () => {
-    setCurrentRoom({ id: '', state: RoomState.LEAVING });
-    await database.ref(`rooms/${currentRoom.id}/users/${uid}`).remove();
-  }, [currentRoom.id, database, uid]);
   const signOut = useCallback(async () => {
     await leaveRoom();
     await auth.signOut();
   }, [auth, leaveRoom]);
 
+  const [connectionStateByUid, setConnectionStateByUid] = useState({});
+
   return (
-    <>
+    <div className="w-full h-full p-2 max-w-lg mx-auto">
       {!connected ? (
         <ServerDisconnnected />
       ) : (
         <>
-          <div className="font-medium p-2">{displayName}</div>
+          <div className="font-medium flex items-center pb-2">
+            <div className="flex-1">{displayName}</div>
+            <Button onClick={signOut}>Sign out</Button>
+          </div>
           <AudioSelector
             kind="audioinput"
             icon={<MicrophoneIcon className="w-4 h-4 mr-1" />}
@@ -105,25 +134,27 @@ export function Home() {
             icon={<SpeakerIcon className="w-4 h-4 mr-1" />}
             onDeviceChange={setOutputDevice}
           />
-          {!micStream ? <div>Loading microphone...</div> : null}
-          {currentRoom.id && micStream ? (
+          {micStream ? (
             <Suspense fallback={<div>Connecting...</div>}>
               <RoomAudio
                 socket={socket}
-                currentRoom={currentRoom.id}
                 micStream={micStream}
                 outputDevice={outputDevice}
+                onConnectionStateChange={setConnectionStateByUid}
               />
             </Suspense>
-          ) : null}
+          ) : (
+            <div>Loading microphone...</div>
+          )}
           <RoomSelector
-            currentRoom={currentRoom}
-            setCurrentRoom={setCurrentRoom}
+            currentRoomId={roomId}
+            currentRoomState={roomState}
+            joinRoom={joinRoom}
             leaveRoom={leaveRoom}
+            connectionStateByUid={connectionStateByUid}
           />
-          <Button onClick={signOut}>Sign out</Button>
         </>
       )}
-    </>
+    </div>
   );
 }

@@ -18,7 +18,16 @@ admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
   databaseURL,
 });
-admin.database().ref('rooms').remove();
+
+async function cleanupRooms() {
+  const rooms = (await admin.database().ref('rooms').once('value')).val();
+  for (const [room, roomDoc] of Object.entries(rooms)) {
+    if (!roomDoc.users && !roomDoc.permanent) {
+      await admin.database().ref(`rooms/${room}`).remove();
+    }
+  }
+}
+cleanupRooms();
 
 // Get PORT from env variable else assign 3000 for development
 const PORT = process.env.PORT || 3010;
@@ -56,12 +65,26 @@ io.on('connection', (socket) => {
       peerSocketId: socket.id,
       peerUid: uid,
     });
+    for (const peerSocket of roomToSockets[room]) {
+      socket.emit('removePeer', {
+        peerSocketId: peerSocket.id,
+        peerUid: peerSocket.user.uid,
+      });
+    }
     roomToSockets[room].delete(socket);
 
     // Note: Don't use socket anymore, might not exist if disconnecting
     return (async () => {
       try {
         await database.ref(`rooms/${room}/users/${uid}`).remove();
+
+        // Delete impromptu room
+        const roomDoc = (
+          await database.ref(`rooms/${room}`).once('value')
+        ).val();
+        if (!roomDoc.users && !roomDoc.permanent) {
+          await database.ref(`rooms/${room}`).remove();
+        }
       } catch (ignored) {}
     })();
   }

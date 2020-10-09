@@ -96,10 +96,12 @@ export function Audio({ srcObject, sinkId, ...rest }) {
   return <audio ref={(el) => setAudioEl(el)} {...rest} />;
 }
 
-export function Button({ children, ...rest }) {
+export function Button({ children, className, ...rest }) {
   return (
     <button
-      className="bg-blue-500 hover:bg-blue-700 text-white font-medium py-1 px-2 rounded disabled:opacity-75"
+      className={`bg-blue-500 hover:bg-blue-700 text-white font-medium py-1 px-2 rounded disabled:opacity-75 ${
+        className || ''
+      }`}
       {...rest}
     >
       {children}

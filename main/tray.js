@@ -12,24 +12,24 @@ class TrayGenerator {
     this.mainWindow.setVisibleOnAllWorkspaces(true);
     this.mainWindow.focus();
     this.mainWindow.setVisibleOnAllWorkspaces(false);
-  };
+  }
 
-  toggleWindow () {
+  toggleWindow() {
     if (this.mainWindow.isVisible()) {
       this.mainWindow.hide();
     } else {
       this.showWindow();
     }
-  };
+  }
 
-  rightClickMenu () {
+  rightClickMenu() {
     const menu = Menu.buildFromTemplate([
       {
         role: 'quit',
       },
     ]);
     this.tray.popUpContextMenu(menu);
-  };
+  }
 
   createTray() {
     this.tray = new Tray(path.join(__dirname, './assets/icon.png'));
@@ -37,7 +37,7 @@ class TrayGenerator {
 
     this.tray.on('click', () => this.toggleWindow());
     this.tray.on('right-click', () => this.rightClickMenu());
-  };
+  }
 }
 
 module.exports = TrayGenerator;

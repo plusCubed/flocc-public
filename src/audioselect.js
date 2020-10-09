@@ -29,7 +29,7 @@ function AudioSelect({ kind, onDeviceChange }) {
 
 export function AudioSelector({ kind, icon, onDeviceChange }) {
   return (
-    <div className="flex flex-row overflow-x-hidden px-1 pb-1 items-center">
+    <div className="flex flex-row overflow-x-hidden pb-1 items-center">
       {icon}
       <div className="flex-1">
         <Suspense fallback={<span>Loading...</span>}>

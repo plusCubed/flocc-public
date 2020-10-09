@@ -49,12 +49,22 @@ const ICE_SERVERS = [
  * @returns {JSX.Element}
  * @constructor
  */
-export function RoomAudio({ socket, currentRoom, micStream, outputDevice }) {
+export function RoomAudio({
+  socket,
+  micStream,
+  outputDevice,
+  onConnectionStateChange,
+}) {
   // {uid: {connection, stream, rtcRtpSender}}
   const [connectionsByUid, setConnectionsByUid] = useState({});
   const [connectionStateByUid, setConnectionStateByUid] = useState({});
   const sendersByUid = useRef({});
 
+  useEffect(() => {
+    onConnectionStateChange(connectionStateByUid);
+  }, [connectionStateByUid, onConnectionStateChange]);
+
+  // cleanup
   useEffect(() => {
     return () => {
       setConnectionsByUid((connectionsByUid) => {
@@ -67,21 +77,32 @@ export function RoomAudio({ socket, currentRoom, micStream, outputDevice }) {
   }, []);
 
   useEffect(() => {
+    const micTrack = micStream.getTracks()[0];
     const entries = Object.entries(connectionsByUid);
 
     for (const [peerUid, { connection }] of entries) {
+      /** @type RTCRtpSender */
       const sender = sendersByUid.current[peerUid];
       if (sender) {
-        console.log(`[${peerUid}] replace mic track`);
-        sender.replaceTrack(micStream.getTracks()[0]).catch((e) => {
-          console.error(`[${peerUid}] replace audio track failed`, e);
-        });
+        if (sender.track.id !== micTrack.id) {
+          console.log(`[${peerUid}] replace mic track`);
+          sender.replaceTrack(micTrack).catch((e) => {
+            console.error(`[${peerUid}] replace audio track failed`, e);
+          });
+        }
       } else {
         console.log(`[${peerUid}] add mic track`);
         sendersByUid.current[peerUid] = connection.addTrack(
-          micStream.getTracks()[0],
+          micTrack,
           micStream
         );
+      }
+    }
+
+    const senderUids = Object.keys(sendersByUid.current);
+    for (const uid of senderUids) {
+      if (!(uid in connectionsByUid)) {
+        delete sendersByUid.current[uid];
       }
     }
   }, [connectionsByUid, micStream]);
@@ -156,6 +177,11 @@ export function RoomAudio({ socket, currentRoom, micStream, outputDevice }) {
   useSocketListener(socket, 'addPeer', addPeer);
 
   const removePeer = useCallback(({ peerUid }) => {
+    setConnectionStateByUid((connectionStateByUid) => {
+      const connectionStateByUidCopy = { ...connectionStateByUid };
+      delete connectionStateByUidCopy[peerUid];
+      return connectionStateByUidCopy;
+    });
     setConnectionsByUid((connectionsByUid) => {
       const connectionsByUidCopy = { ...connectionsByUid };
       if (peerUid in connectionsByUidCopy) {
@@ -217,18 +243,18 @@ export function RoomAudio({ socket, currentRoom, micStream, outputDevice }) {
   useSocketListener(socket, 'iceCandidate', processIceCandidate);
 
   return (
-    <div>
+    <>
       {Object.entries(connectionsByUid).map(
         ([peerUid, { connection, stream }]) => (
-          <div key={peerUid}>
-            <div>
-              {peerUid}: {connectionStateByUid[peerUid]}
-            </div>
-            <Audio autoPlay srcObject={stream} sinkId={outputDevice} />
-          </div>
+          <Audio
+            key={peerUid}
+            autoPlay
+            srcObject={stream}
+            sinkId={outputDevice}
+          />
         )
       )}
-    </div>
+    </>
   );
 }
 
@@ -252,7 +278,7 @@ function useDatabaseObjectDataPartial(ref, childKeys) {
   return usePromise(getPartial, [ref, childKeys]);
 }
 
-function RoomUsers({ roomId }) {
+function RoomUsers({ currentRoomId, roomId, connectionStateByUid }) {
   const database = useDatabase();
   const roomUsers = useDatabaseObjectData(
     database.ref(`rooms/${roomId}/users`)
@@ -261,66 +287,100 @@ function RoomUsers({ roomId }) {
   const userDocs = useDatabaseObjectDataPartial(database.ref('users'), userIds);
 
   return (
-    <div>
+    <>
       {Object.entries(userDocs).map(([uid, userDoc]) => (
-        <div key={uid}>{userDoc.displayName}</div>
+        <div key={uid} className="flex">
+          <div className="px-1">{userDoc.displayName}</div>
+          {currentRoomId ? <div>{connectionStateByUid[uid]}</div> : null}
+        </div>
       ))}
+    </>
+  );
+}
+
+function Room({
+  id,
+  currentRoomId,
+  connectionStateByUid,
+  currentRoomState,
+  leaveRoom: leave,
+  joinRoom,
+}) {
+  const transitioning =
+    currentRoomState === RoomState.JOINING ||
+    currentRoomState === RoomState.LEAVING;
+
+  const join = useCallback(() => {
+    joinRoom(id);
+  }, [id, joinRoom]);
+
+  let roomName = useDatabaseObjectData(useDatabase().ref(`rooms/${id}/name`));
+  if (typeof roomName !== 'string') {
+    roomName = '';
+  }
+
+  return (
+    <div
+      key={id}
+      className="border border-solid border-gray-700 rounded p-1 pl-2 mb-2 flex"
+    >
+      <div className="flex-1 self-center">
+        <span className="font-medium">{roomName}</span>
+        <Suspense fallback={<span>Loading...</span>}>
+          <RoomUsers
+            currentRoomId={currentRoomId}
+            roomId={id}
+            connectionStateByUid={connectionStateByUid}
+          />
+        </Suspense>
+      </div>
+      {currentRoomState === RoomState.JOINED && currentRoomId === id ? (
+        <Button className="self-start" onClick={leave} disabled={transitioning}>
+          Leave
+        </Button>
+      ) : (
+        <Button className="self-start" onClick={join} disabled={transitioning}>
+          Join
+        </Button>
+      )}
     </div>
   );
 }
 
-function makeid(length) {
-  var result = '';
-  var characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-  var charactersLength = characters.length;
-  for (var i = 0; i < length; i++) {
-    result += characters.charAt(Math.floor(Math.random() * charactersLength));
-  }
-  return result;
-}
-
-export function RoomSelector({ currentRoom, setCurrentRoom, leaveRoom }) {
+export function RoomSelector({
+  currentRoomId,
+  currentRoomState,
+  joinRoom,
+  leaveRoom,
+  connectionStateByUid,
+}) {
   const database = useDatabase();
-  const uid = useUser().uid;
 
   const allRooms = useDatabaseObjectData(database.ref('rooms'));
   const allRoomIds = Object.keys(allRooms);
 
-  const handleJoinRoom = async (id) => {
-    setCurrentRoom({ id, state: RoomState.JOINING });
-    await database.ref(`rooms/${id}/users/${uid}`).set(true);
-  };
-
-  const handleCreateAndJoinRoom = async () => {
-    const roomRef = database.ref(`rooms/${makeid(10)}`);
-    setCurrentRoom({ id: roomRef.key, state: RoomState.JOINING });
-    await roomRef.set({ users: { [uid]: true } });
-  };
-
-  const handleLeaveRoom = () => {
-    leaveRoom();
+  const createAndJoinRoom = () => {
+    const roomRef = database.ref(`rooms`).push({ name: 'Impromptu' });
+    joinRoom(roomRef.key);
   };
 
   const transitioning =
-    currentRoom.state === RoomState.JOINING ||
-    currentRoom.state === RoomState.LEAVING;
+    currentRoomState === RoomState.JOINING ||
+    currentRoomState === RoomState.LEAVING;
   return (
-    <div>
+    <div className="mt-2">
       {allRoomIds.map((id) => (
-        <div key={id} className="border border-solid border-gray-700 rounded">
-          <Suspense fallback={<div>Loading...</div>}>
-            <RoomUsers roomId={id} />
-          </Suspense>
-          {currentRoom.state === RoomState.JOINED && currentRoom.id === id ? (
-            <Button onClick={() => handleLeaveRoom(id)}>Leave room</Button>
-          ) : (
-            <Button onClick={() => handleJoinRoom(id)} disabled={transitioning}>
-              Join room
-            </Button>
-          )}
-        </div>
+        <Room
+          key={id}
+          id={id}
+          currentRoomId={currentRoomId}
+          connectionStateByUid={connectionStateByUid}
+          currentRoomState={currentRoomState}
+          leaveRoom={leaveRoom}
+          joinRoom={joinRoom}
+        />
       ))}
-      <Button onClick={handleCreateAndJoinRoom} disabled={transitioning}>
+      <Button onClick={createAndJoinRoom} disabled={transitioning}>
         New room
       </Button>
     </div>

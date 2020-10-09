@@ -10,7 +10,7 @@ module.exports = [
     test: /\.(m?js|node)$/,
     parser: { amd: false },
     use: {
-      loader: '@marshallofsound/webpack-asset-relocator-loader',
+      loader: '@zeit/webpack-asset-relocator-loader',
       options: {
         outputAssetBase: 'native_modules',
       },
@@ -24,6 +24,7 @@ module.exports = [
       options: {
         presets: [['@babel/preset-env'], ['@babel/preset-react']],
         plugins: [
+          '@babel/plugin-proposal-class-properties',
           isDevelopment && require.resolve('react-refresh/babel'),
         ].filter(Boolean),
       },

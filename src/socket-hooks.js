@@ -33,7 +33,7 @@ export function useSocket(endpoint, user) {
     };
   }, [endpoint, user]);
 
-  return [socket, connected];
+  return { socket, connected };
 }
 
 export function useSocketListener(socket, eventName, listener) {
