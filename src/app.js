@@ -13,8 +13,6 @@ import { SignInForm } from './signin';
 import { Home } from './home';
 import { ErrorBoundary } from './error';
 
-const electron = isElectron();
-
 function ScreenCenter({ children }) {
   return (
     <div className="h-screen flex items-center justify-center">{children}</div>
@@ -22,8 +20,8 @@ function ScreenCenter({ children }) {
 }
 
 const isDevelopment =
-  (electron && require('electron-is-dev')) ||
-  (!electron && window.location.hostname === 'localhost');
+  (isElectron() && require('electron-is-dev')) ||
+  (!isElectron() && window.location.hostname === 'localhost');
 
 /*if (isDevelopment) {
   firebaseConfig.databaseURL = 'http://localhost:9000/?ns=floccapp';
@@ -33,12 +31,16 @@ function App() {
 
   const auth = useAuth();
   useEffect(() => {
-    auth
-      .getRedirectResult()
-      .then((user) => console.info('Attempted sign in by redirect', user.user))
-      .catch((e) => {
-        console.error('Sign in by redirect error', e);
-      });
+    if (!isElectron()) {
+      auth
+        .getRedirectResult()
+        .then((user) =>
+          console.info('Attempted sign in by redirect', user.user)
+        )
+        .catch((e) => {
+          console.error('Sign in by redirect error', e);
+        });
+    }
   }, [auth]);
   return (
     <AuthCheck fallback={<SignInForm />}>

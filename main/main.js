@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
 const Positioner = require('electron-positioner');
 const TrayGenerator = require('./tray');
@@ -23,7 +23,17 @@ const createWindow = () => {
       enableRemoteModule: true,
     },
   });
-  mainWindow.setMenuBarVisibility(false);
+  mainWindow.setMenu(
+    Menu.buildFromTemplate([
+      {
+        role: 'fileMenu',
+      },
+      {
+        role: 'viewMenu',
+      },
+    ])
+  );
+  //mainWindow.setMenuBarVisibility(false);
 
   const positioner = new Positioner(mainWindow);
   positioner.move('bottomRight');

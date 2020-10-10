@@ -1,12 +1,19 @@
 import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import { useAuth, useDatabase, useUser } from 'reactfire';
+import isElectron from 'is-electron';
+
 import { RoomAudio, RoomSelector, RoomState } from './talk';
 import { useSocket, useSocketListener } from './socket-hooks';
 import { AudioSelector } from './audioselect';
 import { Button, MicrophoneIcon, SpeakerIcon } from './ui';
 
-const SOCKET_ENDPOINT =
-  window.location.hostname === 'localhost' ? 'http://localhost:3010' : '';
+const isDevelopment =
+  (isElectron() && require('electron-is-dev')) ||
+  (!isElectron() && window.location.hostname === 'localhost');
+
+const SOCKET_ENDPOINT = isDevelopment
+  ? 'http://localhost:3010'
+  : 'https://server.flocc.app:8443';
 
 function openUserMedia(device) {
   return navigator.mediaDevices.getUserMedia({

@@ -1,4 +1,5 @@
 const ReactRefreshPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
 const rules = require('./webpack.rules');
@@ -6,7 +7,8 @@ const rules = require('./webpack.rules');
 rules.push({
   test: /\.css$/,
   use: [
-    { loader: 'style-loader' },
+    isDevelopment && { loader: 'style-loader' },
+    !isDevelopment && { loader: MiniCssExtractPlugin.loader },
     { loader: 'css-loader' },
     {
       loader: 'postcss-loader',
@@ -16,7 +18,7 @@ rules.push({
         },
       },
     },
-  ],
+  ].filter(Boolean),
 });
 
 module.exports = {
@@ -31,5 +33,11 @@ module.exports = {
           sockIntegration: 'whm',
         },
       }),
+    !isDevelopment &&
+      new MiniCssExtractPlugin({
+        filename: 'main_window/[name].[contenthash:8].css',
+        chunkFilename: 'main_window/[name].[contenthash:8].chunk.css',
+      }),
   ].filter(Boolean),
+  output: { chunkFilename: 'main_window/[name].chunk.js', publicPath: '../' },
 };

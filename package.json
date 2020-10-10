@@ -1,7 +1,7 @@
 {
   "name": "flocc",
   "productName": "Flocc",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Flocc",
   "main": ".webpack/main",
   "scripts": {
@@ -10,6 +10,7 @@
     "start-server-dev": "node server/server.js",
     "package": "cross-env NODE_ENV=production electron-forge package",
     "make": "cross-env NODE_ENV=production electron-forge make",
+    "make-zip": "cross-env NODE_ENV=production electron-forge make --targets @electron-forge/maker-zip",
     "publish": "cross-env NODE_ENV=production electron-forge publish",
     "lint": "echo \"No linting configured\""
   },
@@ -19,49 +20,7 @@
     "email": "pluscubed@gmail.com"
   },
   "config": {
-    "forge": {
-      "packagerConfig": {},
-      "makers": [
-        {
-          "name": "@electron-forge/maker-squirrel",
-          "config": {
-            "name": "flocc"
-          }
-        },
-        {
-          "name": "@electron-forge/maker-zip",
-          "platforms": [
-            "darwin"
-          ]
-        },
-        {
-          "name": "@electron-forge/maker-deb",
-          "config": {}
-        },
-        {
-          "name": "@electron-forge/maker-rpm",
-          "config": {}
-        }
-      ],
-      "plugins": [
-        [
-          "@electron-forge/plugin-webpack",
-          {
-            "mainConfig": "./webpack.main.config.js",
-            "renderer": {
-              "config": "./webpack.renderer.config.js",
-              "entryPoints": [
-                {
-                  "html": "./src/index.html",
-                  "js": "./src/index.js",
-                  "name": "main_window"
-                }
-              ]
-            }
-          }
-        ]
-      ]
-    }
+    "forge": "./forge.config.js"
   },
   "browserslist": [
     "Electron 10.0"
@@ -95,6 +54,7 @@
     "eslint-plugin-jsx-a11y": "6.x",
     "eslint-plugin-react": "7.x",
     "eslint-plugin-react-hooks": "2.x",
+    "mini-css-extract-plugin": "^1.0.0",
     "node-loader": "^1.0.1",
     "postcss": "^8.1.1",
     "postcss-loader": "^4.0.2",

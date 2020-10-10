@@ -1,22 +1,28 @@
 const express = require('express');
 const path = require('path');
 const http = require('http');
-const app = express();
-const server = http.createServer(app);
-const io = require('socket.io').listen(server);
+const https = require('https');
 const admin = require('firebase-admin');
+const fs = require('fs');
 
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
-const serviceAccount = require('./service-account.json');
+const app = express();
+const server = isDevelopment
+  ? http.createServer(app)
+  : https.createServer(
+      {
+        key: fs.readFileSync('cert/key.pem', 'utf8'),
+        cert: fs.readFileSync('cert/cert.pem', 'utf8'),
+      },
+      app
+    );
+const io = require('socket.io').listen(server);
 
-let databaseURL = 'https://floccapp.firebaseio.com';
-/*if (isDevelopment) {
-  databaseURL = 'http://localhost:9000/?ns=floccapp';
-}*/
+const serviceAccount = require('./service-account.json');
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  databaseURL,
+  databaseURL: 'https://floccapp.firebaseio.com',
 });
 
 async function cleanupRooms() {
@@ -30,7 +36,7 @@ async function cleanupRooms() {
 cleanupRooms();
 
 // Get PORT from env variable else assign 3000 for development
-const PORT = process.env.PORT || 3010;
+const PORT = isDevelopment ? process.env.PORT || 3010 : 8443;
 server.listen(PORT, null, function () {
   console.log('Listening on port ' + PORT);
 });
