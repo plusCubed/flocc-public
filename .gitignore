@@ -93,3 +93,4 @@ out/
 # API keys
 src/config
 .firebaserc
+githubAuthToken.js
