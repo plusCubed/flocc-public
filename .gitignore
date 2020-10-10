@@ -94,3 +94,5 @@ out/
 src/renderer/config
 .firebaserc
 githubAuthToken.js
+
+.firebase/
