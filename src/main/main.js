@@ -1,9 +1,9 @@
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, autoUpdater, dialog } = require('electron');
 const path = require('path');
 const Positioner = require('electron-positioner');
 const TrayGenerator = require('./tray');
 
-const isDevelopment = process.env.NODE_ENV !== 'production';
+const isDevelopment = require('electron-is-dev');
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
@@ -54,7 +54,35 @@ const createWindow = () => {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.on('ready', createWindow);
+app.on('ready', () => {
+  createWindow();
+
+  if (!isDevelopment) {
+    const nutsServer = 'https://nuts.flocc.app';
+    const url = `${nutsServer}/update/${process.platform}/${app.getVersion()}`;
+    autoUpdater.setFeedURL({ url });
+    setInterval(() => {
+      autoUpdater.checkForUpdates();
+    }, 300000);
+    autoUpdater.on('update-downloaded', (event, releaseNotes, releaseName) => {
+      const dialogOpts = {
+        type: 'info',
+        buttons: ['Restart', 'Later'],
+        title: 'Application Update',
+        message: process.platform === 'win32' ? releaseNotes : releaseName,
+        detail:
+          'A new version has been downloaded. Restart the application to apply the updates.',
+      };
+
+      dialog.showMessageBox(dialogOpts).then((returnValue) => {
+        if (returnValue.response === 0) autoUpdater.quitAndInstall();
+      });
+    });
+    autoUpdater.on('error', (e) => {
+      console.error('There was a problem updating the application', e);
+    });
+  }
+});
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
