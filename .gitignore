@@ -91,6 +91,6 @@ typings/
 out/
 
 # API keys
-src/config
+src/renderer/config
 .firebaserc
 githubAuthToken.js

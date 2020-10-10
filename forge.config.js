@@ -1,7 +1,14 @@
+const path = require('path');
 const githubAuthToken = require('./githubAuthToken.js');
 
 module.exports = {
-  packagerConfig: {},
+  packagerConfig: {
+    name: 'Flocc',
+    executableName: 'flocc',
+    /*asar: true,*/
+    icon: path.resolve(__dirname, 'assets', 'icon'),
+    appBundleId: 'com.pluscubed.flocc',
+  },
   makers: [
     {
       name: '@electron-forge/maker-squirrel',
@@ -30,7 +37,8 @@ module.exports = {
           owner: 'pluscubed',
           name: 'flocc',
         },
-        prerelease: true,
+        draft: true,
+        prerelease: false,
         authToken: githubAuthToken,
       },
     },
@@ -44,8 +52,8 @@ module.exports = {
           config: './webpack.renderer.config.js',
           entryPoints: [
             {
-              html: './src/index.html',
-              js: './src/index.js',
+              html: './src/renderer/index.html',
+              js: './src/renderer/index.js',
               name: 'main_window',
             },
           ],

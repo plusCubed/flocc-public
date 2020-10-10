@@ -32,7 +32,7 @@ class TrayGenerator {
   }
 
   createTray() {
-    this.tray = new Tray(path.join(__dirname, './assets/icon.png'));
+    this.tray = new Tray(path.join(__dirname, '../../assets/icon.png'));
     this.tray.setIgnoreDoubleClickEvents(true);
 
     this.tray.on('click', () => this.toggleWindow());

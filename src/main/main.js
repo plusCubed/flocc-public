@@ -11,11 +11,12 @@ if (require('electron-squirrel-startup')) {
   app.quit();
 }
 
-let tray = null;
+let mainWindow;
+let tray;
 
 const createWindow = () => {
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 300,
     height: 600,
     webPreferences: {

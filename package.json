@@ -10,7 +10,6 @@
     "start-server-dev": "node server/server.js",
     "package": "cross-env NODE_ENV=production electron-forge package",
     "make": "cross-env NODE_ENV=production electron-forge make",
-    "make-zip": "cross-env NODE_ENV=production electron-forge make --targets @electron-forge/maker-zip",
     "publish": "cross-env NODE_ENV=production electron-forge publish",
     "lint": "echo \"No linting configured\""
   },
@@ -39,7 +38,6 @@
     "@marshallofsound/webpack-asset-relocator-loader": "^0.5.0",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.4.2",
     "@types/socket.io": "^2.1.11",
-    "@zeit/webpack-asset-relocator-loader": "^0.8.0",
     "autoprefixer": "^10.0.1",
     "babel-eslint": "10.x",
     "babel-loader": "^8.1.0",
