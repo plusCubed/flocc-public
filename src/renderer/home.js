@@ -2,18 +2,21 @@ import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import { useAuth, useDatabase, useUser } from 'reactfire';
 import isElectron from 'is-electron';
 
-import { RoomAudio, RoomSelector, RoomState } from './talk';
-import { useSocket, useSocketListener } from './socket-hooks';
+import { RoomAudio, RoomState } from './roomAudio';
+import { useSocket, useSocketListener } from './socketHooks';
 import { AudioSelector } from './audioselect';
-import { Button, MicrophoneIcon, SpeakerIcon } from './ui';
+import { Button, MicrophoneIcon, SettingsIcon, SpeakerIcon } from './ui';
+import { RoomSelector } from './roomSelector';
+import { Music } from './music';
 
 const isDevelopment =
   (isElectron() && require('electron-is-dev')) ||
   (!isElectron() && window.location.hostname === 'localhost');
 
-const SOCKET_ENDPOINT = isDevelopment
+const SOCKET_ENDPOINT =
+  /*isDevelopment
   ? 'http://localhost:3010'
-  : 'https://server.flocc.app:8443';
+  :*/ 'https://server.flocc.app:8443';
 
 function openUserMedia(device) {
   return navigator.mediaDevices.getUserMedia({
@@ -126,10 +129,13 @@ export function Home() {
       {!connected ? (
         <ServerDisconnnected />
       ) : (
-        <>
+        <div className="w-full h-full flex flex-col">
           <div className="font-medium flex items-center pb-2">
             <div className="flex-1">{displayName}</div>
-            <Button onClick={signOut}>Sign out</Button>
+            <Button onClick={signOut} className="text-sm">
+              Sign out
+              {/*<Button onClick={signOut}>Sign out</Button>*/}
+            </Button>
           </div>
           <AudioSelector
             kind="audioinput"
@@ -153,14 +159,17 @@ export function Home() {
           ) : (
             <div>Loading microphone...</div>
           )}
-          <RoomSelector
-            currentRoomId={roomId}
-            currentRoomState={roomState}
-            joinRoom={joinRoom}
-            leaveRoom={leaveRoom}
-            connectionStateByUid={connectionStateByUid}
-          />
-        </>
+          <div className="overflow-y-auto flex-1">
+            <RoomSelector
+              currentRoomId={roomId}
+              currentRoomState={roomState}
+              joinRoom={joinRoom}
+              leaveRoom={leaveRoom}
+              connectionStateByUid={connectionStateByUid}
+            />
+          </div>
+          {roomId ? <Music /> : null}
+        </div>
       )}
     </div>
   );

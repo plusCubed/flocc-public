@@ -5,7 +5,7 @@
   "description": "Flocc",
   "main": ".webpack/main",
   "scripts": {
-    "start": "electron-forge start",
+    "start": "electron-forge start -- --inspect=5858",
     "start-firebase-dev": "firebase emulators:start",
     "start-server-dev": "node server/server.js",
     "package": "cross-env NODE_ENV=production electron-forge package",
@@ -37,6 +37,7 @@
     "@electron-forge/plugin-webpack": "6.0.0-beta.53",
     "@marshallofsound/webpack-asset-relocator-loader": "^0.5.0",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.4.2",
+    "@types/hls.js": "^0.13.2",
     "@types/socket.io": "^2.1.11",
     "autoprefixer": "^10.0.1",
     "babel-eslint": "10.x",
@@ -62,21 +63,29 @@
     "style-loader": "^1.2.1"
   },
   "dependencies": {
+    "@discordjs/opus": "^0.3.2",
     "@getstation/electron-google-oauth2": "^2.1.0",
     "@headlessui/react": "^0.2.0",
     "electron-is-dev": "^1.2.0",
     "electron-positioner": "^4.1.0",
     "electron-squirrel-startup": "^1.0.0",
+    "ffmpeg-static": "^4.2.7",
     "firebase": "^7.21.1",
     "framer-motion": "^2.7.8",
+    "hls.js": "^0.14.14",
     "is-electron": "^2.2.0",
     "react": "0.0.0-experimental-94c0244ba",
     "react-dom": "0.0.0-experimental-94c0244ba",
+    "react-player": "^2.6.2",
     "react-promise-suspense": "^0.3.3",
     "reactfire": "^2.0.3",
     "socket.io-client": "^2.3.1",
     "tailwindcss": "^1.8.10",
-    "webrtc-adapter": "^7.7.0"
+    "webrtc-adapter": "^7.7.0",
+    "ytdl-core": "^3.3.0",
+    "ytdl-core-browser": "^1.0.0",
+    "ytdl-core-discord": "^1.2.3",
+    "ytsr": "^1.0.4"
   },
   "prettier": {
     "singleQuote": true

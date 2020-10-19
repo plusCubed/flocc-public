@@ -7,8 +7,13 @@ module.exports = {
   theme: {
     extend: {},
   },
-  variants: {
-    opacity: ['disabled'],
-  },
+  variants: [
+    'responsive',
+    'group-hover',
+    'disabled',
+    'hover',
+    'focus',
+    'active',
+  ],
   plugins: [],
 };

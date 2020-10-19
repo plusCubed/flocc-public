@@ -13,7 +13,7 @@ if (isElectron()) {
     [],
     {
       // TODO: Change
-      successRedirectURL: 'https://getstation.com/app-login-success/',
+      successRedirectURL: 'https://flocc.app/oauth',
     }
   );
 }

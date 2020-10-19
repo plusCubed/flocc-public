@@ -1,9 +1,16 @@
-const { app, BrowserWindow, Menu, autoUpdater, dialog } = require('electron');
+const {
+  app,
+  BrowserWindow,
+  Menu,
+  autoUpdater,
+  dialog,
+  ipcMain,
+} = require('electron');
 const path = require('path');
 const Positioner = require('electron-positioner');
-const TrayGenerator = require('./tray');
-
 const isDevelopment = require('electron-is-dev');
+
+const TrayGenerator = require('./tray');
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
@@ -23,6 +30,7 @@ const createWindow = () => {
       nodeIntegration: true,
       enableRemoteModule: true,
     },
+    icon: path.join(__dirname, '../../assets/icon.ico'),
   });
   mainWindow.setMenu(
     Menu.buildFromTemplate([
@@ -103,3 +111,12 @@ app.on('activate', () => {
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and import them here.
+
+const ytsr = require('ytsr');
+const ytdl = require('./ytStream');
+ipcMain.on('yt-req', async (event, arg) => {
+  console.log(arg);
+  const url = await ytdl(arg);
+  console.log(url);
+  event.reply('yt-res', url);
+});

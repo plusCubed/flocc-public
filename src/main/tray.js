@@ -32,7 +32,9 @@ class TrayGenerator {
   }
 
   createTray() {
-    this.tray = new Tray(path.join(__dirname, '../../assets/icon.png'));
+    const iconPath =
+      process.platform === 'win32' ? 'icon.png' : 'mac_tray_icon.png';
+    this.tray = new Tray(path.join(__dirname, '..', '..', 'assets', iconPath));
     this.tray.setIgnoreDoubleClickEvents(true);
 
     this.tray.on('click', () => this.toggleWindow());
