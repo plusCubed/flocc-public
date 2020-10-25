@@ -1,4 +1,4 @@
-const { Tray, Menu } = require('electron');
+const { app, Tray, Menu } = require('electron');
 const path = require('path');
 
 class TrayGenerator {
@@ -17,8 +17,12 @@ class TrayGenerator {
   toggleWindow() {
     if (this.mainWindow.isVisible()) {
       this.mainWindow.hide();
+      if(app.dock)
+        app.dock.hide();
     } else {
       this.showWindow();
+      if(app.dock)
+        app.dock.show();
     }
   }
 

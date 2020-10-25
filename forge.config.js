@@ -5,7 +5,7 @@ module.exports = {
   packagerConfig: {
     name: 'Flocc',
     executableName: 'Flocc',
-    /*asar: true,*/
+    asar: true,
     icon: path.resolve(__dirname, 'assets', 'icon'),
     appBundleId: 'com.pluscubed.flocc',
     usageDescription: {
