@@ -11,15 +11,15 @@ async function getConnectedDevices(type) {
 
 function AudioSelect({ kind, onDeviceChange }) {
   usePromise(async () => {
-    if(!isElectron() || require('electron-is-dev')) {
+    if (!isElectron() || require('electron-is-dev')) {
       return;
     }
-    try{
+    try {
       const { remote } = require('electron');
-      if(remote.systemPreferences)
-        await remote.systemPreferences.askForMediaAccess("microphone");
-    }catch(e){
-      console.error(e)
+      if (remote.systemPreferences)
+        await remote.systemPreferences.askForMediaAccess('microphone');
+    } catch (e) {
+      console.error(e);
     }
   }, []);
   const devices = usePromise(getConnectedDevices, [kind]);
