@@ -12,11 +12,8 @@ module.exports = {
       Microphone: 'Allow microphone access to talk with friends',
     },
     osxSign: {
-      identity: 'Apple Development',
-      hardenedRuntime: true,
+      hardenedRuntime: false,
       'gatekeeper-assess': false,
-      entitlements: 'entitlements.plist',
-      'entitlements-inherit': 'entitlements.plist',
       type: 'development',
     },
   },
