@@ -1,5 +1,7 @@
 import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import usePromise from 'react-promise-suspense';
+import isElectron from 'is-electron';
+
 import { Option, Select } from './ui';
 
 async function getConnectedDevices(type) {
