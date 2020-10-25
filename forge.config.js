@@ -4,13 +4,12 @@ const githubAuthToken = require('./githubAuthToken.js');
 module.exports = {
   packagerConfig: {
     name: 'Flocc',
-    executableName: 'flocc',
+    executableName: 'Flocc',
     /*asar: true,*/
     icon: path.resolve(__dirname, 'assets', 'icon'),
     appBundleId: 'com.pluscubed.flocc',
     usageDescription: {
-      Microphone:
-        'Allow microphone access to talk with friends',
+      Microphone: 'Allow microphone access to talk with friends',
     },
     osxSign: {
       identity: 'Apple Development',
@@ -18,7 +17,7 @@ module.exports = {
       'gatekeeper-assess': false,
       entitlements: 'entitlements.plist',
       'entitlements-inherit': 'entitlements.plist',
-      type: 'development'
+      type: 'development',
     },
   },
   makers: [
