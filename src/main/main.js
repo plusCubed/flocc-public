@@ -69,6 +69,7 @@ app.on('ready', () => {
     const nutsServer = 'https://nuts.flocc.app';
     const url = `${nutsServer}/update/${process.platform}/${app.getVersion()}`;
     autoUpdater.setFeedURL({ url });
+    autoUpdater.checkForUpdates();
     setInterval(() => {
       autoUpdater.checkForUpdates();
     }, 300000);
