@@ -8,6 +8,18 @@ async function getConnectedDevices(type) {
 }
 
 function AudioSelect({ kind, onDeviceChange }) {
+  usePromise(async () => {
+    if(!isElectron() || require('electron-is-dev')) {
+      return;
+    }
+    try{
+      const { remote } = require('electron');
+      if(remote.systemPreferences)
+        await remote.systemPreferences.askForMediaAccess("microphone");
+    }catch(e){
+      console.error(e)
+    }
+  }, []);
   const devices = usePromise(getConnectedDevices, [kind]);
   const [selected, setSelected] = useState(devices[0].deviceId);
   const handleSelectChange = useCallback((event) => {

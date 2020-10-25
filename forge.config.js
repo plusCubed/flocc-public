@@ -8,6 +8,18 @@ module.exports = {
     /*asar: true,*/
     icon: path.resolve(__dirname, 'assets', 'icon'),
     appBundleId: 'com.pluscubed.flocc',
+    usageDescription: {
+      Microphone:
+        'Allow microphone access to talk with friends',
+    },
+    osxSign: {
+      identity: 'Apple Development',
+      hardenedRuntime: true,
+      'gatekeeper-assess': false,
+      entitlements: 'entitlements.plist',
+      'entitlements-inherit': 'entitlements.plist',
+      type: 'development'
+    },
   },
   makers: [
     {

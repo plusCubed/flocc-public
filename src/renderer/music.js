@@ -23,7 +23,6 @@ export function Music() {
     <div className="py-2 pr-1 border-t border-solid border-gray-200">
       <input placeholder="Search music" />
       <ReactPlayer
-        playing
         height={100}
         width="100%"
         url="https://www.youtube.com/watch?v=ysz5S6PUM-U"
