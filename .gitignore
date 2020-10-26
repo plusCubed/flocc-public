@@ -95,5 +95,6 @@ src/renderer/config
 src/main/config
 .firebaserc
 githubAuthToken.js
+macNotarizeOptions.js
 
 .firebase/

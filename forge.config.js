@@ -1,5 +1,6 @@
 const path = require('path');
 const githubAuthToken = require('./githubAuthToken.js');
+const notarizeOptions = require('./macNotarizeOptions.js');
 
 module.exports = {
   packagerConfig: {
@@ -12,10 +13,13 @@ module.exports = {
       Microphone: 'Allow microphone access to talk with friends',
     },
     osxSign: {
-      hardenedRuntime: false,
+      hardenedRuntime: true,
+      type: 'distribution',
       'gatekeeper-assess': false,
-      type: 'development',
+      entitlements: 'entitlements.plist',
+      'entitlements-inherit': 'entitlements.plist',
     },
+    osxNotarize: notarizeOptions,
   },
   makers: [
     {
