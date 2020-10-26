@@ -21,7 +21,7 @@ export function Music() {
 
   return (
     <div className="py-2 pr-1 border-t border-solid border-gray-200">
-      <input placeholder="Search music" />
+      {/* <input placeholder="Search music" /> */}
       <ReactPlayer
         height={100}
         width="100%"
