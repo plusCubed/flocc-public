@@ -147,10 +147,10 @@ app.on('activate', () => {
 // code. You can also put them in separate files and import them here.
 
 const ytsr = require('ytsr');
-const ytdl = require('./ytStream');
-ipcMain.on('yt-req', async (event, arg) => {
-  console.log(arg);
-  const url = await ytdl(arg);
-  console.log(url);
-  event.reply('yt-res', url);
-});
+// const ytdl = require('./ytStream');
+// ipcMain.on('yt-req', async (event, arg) => {
+//   console.log(arg);
+//   const url = await ytdl(arg);
+//   console.log(url);
+//   event.reply('yt-res', url);
+// });
