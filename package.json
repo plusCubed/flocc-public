@@ -5,7 +5,7 @@
   "description": "Flocc",
   "main": ".webpack/main",
   "scripts": {
-    "start": "electron-forge start -- --inspect=5858",
+    "start": "electron-forge start",
     "start-firebase-dev": "firebase emulators:start",
     "start-server-dev": "node server/server.js",
     "package": "cross-env NODE_ENV=production electron-forge package",

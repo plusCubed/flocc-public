@@ -22,6 +22,12 @@ if (require('electron-squirrel-startup')) {
 
 let mainWindow;
 let tray;
+let isQuiting = false;
+let ignoreNextHide = false;
+
+app.on('before-quit', () => {
+  isQuiting = true;
+});
 
 const createWindow = () => {
   // Create the browser window.
@@ -33,6 +39,7 @@ const createWindow = () => {
       enableRemoteModule: true,
     },
     icon: path.join(__dirname, '../../assets/icon.ico'),
+    maximizable: false,
   });
   /*mainWindow.setMenu(
     Menu.buildFromTemplate([
@@ -45,13 +52,17 @@ const createWindow = () => {
     ])
   );*/
   mainWindow.on('close', (event) => {
-    event.preventDefault();
-    tray.hideWindow();
+    console.log('close');
+    if (!isQuiting) {
+      event.preventDefault();
+      tray.hideWindow();
+    }
   });
-  mainWindow.on('hide', (event) => {
-    event.preventDefault();
-    tray.hideWindow();
+  mainWindow.webContents.on('will-navigate', (e, url) => {
+    e.preventDefault();
+    require('electron').shell.openExternal(url);
   });
+
   mainWindow.setMenuBarVisibility(false);
 
   const positioner = new Positioner(mainWindow);
@@ -137,11 +148,11 @@ app.on('ready', () => {
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
-});
+// app.on('window-all-closed', () => {
+//   if (process.platform !== 'darwin') {
+//     app.quit();
+//   }
+// });
 
 app.on('activate', () => {
   // On OS X it's common to re-create a window in the app when the
