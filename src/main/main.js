@@ -23,7 +23,6 @@ if (require('electron-squirrel-startup')) {
 let mainWindow;
 let tray;
 let isQuiting = false;
-let ignoreNextHide = false;
 
 app.on('before-quit', () => {
   isQuiting = true;
@@ -55,6 +54,10 @@ const createWindow = () => {
     console.log('close');
     if (!isQuiting) {
       event.preventDefault();
+      if (process.platform === 'darwin') {
+        mainWindow.hide();
+        return;
+      }
       tray.hideWindow();
     }
   });
@@ -145,14 +148,9 @@ app.on('ready', () => {
   }
 });
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
-// app.on('window-all-closed', () => {
-//   if (process.platform !== 'darwin') {
-//     app.quit();
-//   }
-// });
+app.on('window-all-closed', () => {
+  // override default, do nothing
+});
 
 app.on('activate', () => {
   // On OS X it's common to re-create a window in the app when the
@@ -160,6 +158,7 @@ app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
   }
+  tray.showWindow();
 });
 
 // In this file you can include the rest of your app's specific main process
