@@ -168,7 +168,7 @@ export function Home() {
               connectionStateByUid={connectionStateByUid}
             />
           </div>
-          {roomId ? <Music /> : null}
+          {roomId && !isDevelopment ? <Music /> : null}
         </div>
       )}
     </div>
