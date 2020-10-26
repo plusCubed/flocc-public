@@ -11,7 +11,7 @@ async function getConnectedDevices(type) {
 
 function AudioSelect({ kind, onDeviceChange }) {
   usePromise(async () => {
-    if (!isElectron() || require('electron-is-dev')) {
+    if (!isElectron() || require('electron').ipcRenderer.sendSync('is-dev')) {
       return;
     }
     try {

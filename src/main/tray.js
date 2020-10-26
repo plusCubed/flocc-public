@@ -38,6 +38,12 @@ class TrayGenerator {
           app.quit();
         },
       },
+      {
+        label: 'Open Dev Tools',
+        click: () => {
+          this.mainWindow.webContents.openDevTools({ mode: 'detach' });
+        },
+      },
     ]);
     this.tray.popUpContextMenu(menu);
   }

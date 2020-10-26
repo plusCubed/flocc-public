@@ -2,7 +2,6 @@ import React, { Suspense, useEffect } from 'react';
 import {
   AuthCheck,
   FirebaseAppProvider,
-  preloadFirestore,
   preloadDatabase,
   useAuth,
 } from 'reactfire';
@@ -20,7 +19,7 @@ function ScreenCenter({ children }) {
 }
 
 const isDevelopment =
-  (isElectron() && require('electron-is-dev')) ||
+  (isElectron() && require('electron').ipcRenderer.sendSync('is-dev')) ||
   (!isElectron() && window.location.hostname === 'localhost');
 
 /*if (isDevelopment) {

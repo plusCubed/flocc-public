@@ -1,3 +1,4 @@
+const { IgnorePlugin } = require('webpack');
 const ReactRefreshPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const isDevelopment = process.env.NODE_ENV !== 'production';
@@ -38,6 +39,9 @@ module.exports = {
         filename: 'main_window/[name].[contenthash:8].css',
         chunkFilename: 'main_window/[name].[contenthash:8].chunk.css',
       }),
+    new IgnorePlugin({
+      resourceRegExp: /^firebase\/(analytics|firestore|functions|messaging|performance|remote-config|storage)$/,
+    }),
   ].filter(Boolean),
   output: { chunkFilename: 'main_window/[name].chunk.js', publicPath: '../' },
 };

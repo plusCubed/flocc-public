@@ -13,6 +13,7 @@ const isDevelopment = require('electron-is-dev');
 const fetch = require('electron-fetch').default;
 
 const TrayGenerator = require('./tray');
+const googleOAuthConfig = require('./config/googleOAuthConfig').default;
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
@@ -39,6 +40,7 @@ const createWindow = () => {
     },
     icon: path.join(__dirname, '../../assets/icon.ico'),
     maximizable: false,
+    fullscreenable: false,
   });
   /*mainWindow.setMenu(
     Menu.buildFromTemplate([
@@ -61,10 +63,10 @@ const createWindow = () => {
       tray.hideWindow();
     }
   });
-  mainWindow.webContents.on('will-navigate', (e, url) => {
+  /*mainWindow.webContents.on('will-navigate', (e, url) => {
     e.preventDefault();
     require('electron').shell.openExternal(url);
-  });
+  });*/
 
   mainWindow.setMenuBarVisibility(false);
 
@@ -164,7 +166,7 @@ app.on('activate', () => {
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and import them here.
 
-const ytsr = require('ytsr');
+// const ytsr = require('ytsr');
 // const ytdl = require('./ytStream');
 // ipcMain.on('yt-req', async (event, arg) => {
 //   console.log(arg);
@@ -172,3 +174,25 @@ const ytsr = require('ytsr');
 //   console.log(url);
 //   event.reply('yt-res', url);
 // });
+const ElectronGoogleOAuth2 = require('@getstation/electron-google-oauth2')
+  .default;
+const electronOAuth = new ElectronGoogleOAuth2(
+  googleOAuthConfig.clientId,
+  googleOAuthConfig.clientSecret,
+  [],
+  {
+    successRedirectURL: 'https://flocc.app/oauth',
+  }
+);
+ipcMain.on('sign-in-with-google', async (event) => {
+  try {
+    const token = await electronOAuth.openAuthWindowAndGetTokens();
+    event.reply('sign-in-with-google-response', null, token);
+  } catch (e) {
+    event.reply('sign-in-with-google-response', e, null);
+  }
+});
+
+ipcMain.on('is-dev', async (event) => {
+  event.returnValue = isDevelopment;
+});

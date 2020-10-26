@@ -10,7 +10,7 @@ import { RoomSelector } from './roomSelector';
 import { Music } from './music';
 
 const isDevelopment =
-  (isElectron() && require('electron-is-dev')) ||
+  (isElectron() && require('electron').ipcRenderer.sendSync('is-dev')) ||
   (!isElectron() && window.location.hostname === 'localhost');
 
 const SOCKET_ENDPOINT =
