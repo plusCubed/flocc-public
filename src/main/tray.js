@@ -7,7 +7,15 @@ class TrayGenerator {
     this.mainWindow = mainWindow;
   }
 
+  hideWindow() {
+    this.mainWindow.hide();
+    if (app.dock) {
+      app.dock.hide();
+    }
+  }
+
   showWindow() {
+    if (app.dock) app.dock.show();
     this.mainWindow.show();
     this.mainWindow.setVisibleOnAllWorkspaces(true);
     this.mainWindow.focus();
@@ -16,18 +24,19 @@ class TrayGenerator {
 
   toggleWindow() {
     if (this.mainWindow.isVisible()) {
-      this.mainWindow.hide();
-      if (app.dock) app.dock.hide();
+      this.hideWindow();
     } else {
       this.showWindow();
-      if (app.dock) app.dock.show();
     }
   }
 
   rightClickMenu() {
     const menu = Menu.buildFromTemplate([
       {
-        role: 'quit',
+        label: 'Quit Flocc',
+        click: () => {
+          app.quit();
+        },
       },
     ]);
     this.tray.popUpContextMenu(menu);
@@ -39,7 +48,7 @@ class TrayGenerator {
     this.tray = new Tray(path.join(__dirname, '..', '..', 'assets', iconPath));
     this.tray.setIgnoreDoubleClickEvents(true);
 
-    this.tray.on('click', () => this.toggleWindow());
+    this.tray.on('click', () => this.showWindow());
     this.tray.on('right-click', () => this.rightClickMenu());
   }
 }

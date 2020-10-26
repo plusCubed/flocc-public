@@ -34,7 +34,7 @@ const createWindow = () => {
     },
     icon: path.join(__dirname, '../../assets/icon.ico'),
   });
-  mainWindow.setMenu(
+  /*mainWindow.setMenu(
     Menu.buildFromTemplate([
       {
         role: 'fileMenu',
@@ -43,8 +43,16 @@ const createWindow = () => {
         role: 'viewMenu',
       },
     ])
-  );
-  //mainWindow.setMenuBarVisibility(false);
+  );*/
+  mainWindow.on('close', (event) => {
+    event.preventDefault();
+    tray.hideWindow();
+  });
+  mainWindow.on('hide', (event) => {
+    event.preventDefault();
+    tray.hideWindow();
+  });
+  mainWindow.setMenuBarVisibility(false);
 
   const positioner = new Positioner(mainWindow);
   positioner.move('bottomRight');
