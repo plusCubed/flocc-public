@@ -5,10 +5,12 @@ const {
   autoUpdater,
   dialog,
   ipcMain,
+  shell,
 } = require('electron');
 const path = require('path');
 const Positioner = require('electron-positioner');
 const isDevelopment = require('electron-is-dev');
+const fetch = require('electron-fetch').default;
 
 const TrayGenerator = require('./tray');
 
@@ -59,6 +61,25 @@ const createWindow = () => {
   tray.createTray();
 };
 
+async function checkForUpdatesMac(url) {
+  const res = await (await fetch(url)).json();
+  if (app.getVersion() !== res.name) {
+    const dialogOpts = {
+      type: 'info',
+      buttons: ['Download', 'Later'],
+      title: 'Application Update',
+      message: res.name,
+      detail: 'A new version is available. Download now?',
+    };
+
+    dialog.showMessageBox(dialogOpts).then((returnValue) => {
+      if (returnValue.response === 0) {
+        shell.openExternal(res.url);
+      }
+    });
+  }
+}
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
@@ -68,28 +89,40 @@ app.on('ready', () => {
   if (!isDevelopment) {
     const nutsServer = 'https://nuts.flocc.app';
     const url = `${nutsServer}/update/${process.platform}/${app.getVersion()}`;
-    autoUpdater.setFeedURL({ url });
-    autoUpdater.checkForUpdates();
-    setInterval(() => {
+    if (process.platform === 'darwin') {
+      checkForUpdatesMac(url);
+      // every hour
+      setInterval(() => {
+        checkForUpdatesMac(url);
+      }, 1000 * 60 * 60);
+    } else {
+      autoUpdater.setFeedURL({ url });
       autoUpdater.checkForUpdates();
-    }, 300000);
-    autoUpdater.on('update-downloaded', (event, releaseNotes, releaseName) => {
-      const dialogOpts = {
-        type: 'info',
-        buttons: ['Restart', 'Later'],
-        title: 'Application Update',
-        message: process.platform === 'win32' ? releaseNotes : releaseName,
-        detail:
-          'A new version has been downloaded. Restart the application to apply the updates.',
-      };
+      // every 5 minutes
+      setInterval(() => {
+        autoUpdater.checkForUpdates();
+      }, 1000 * 60 * 5);
+      autoUpdater.on(
+        'update-downloaded',
+        (event, releaseNotes, releaseName) => {
+          const dialogOpts = {
+            type: 'info',
+            buttons: ['Restart', 'Later'],
+            title: 'Application Update',
+            message: process.platform === 'win32' ? releaseNotes : releaseName,
+            detail:
+              'A new version has been downloaded. Restart the application to apply the updates.',
+          };
 
-      dialog.showMessageBox(dialogOpts).then((returnValue) => {
-        if (returnValue.response === 0) autoUpdater.quitAndInstall();
+          dialog.showMessageBox(dialogOpts).then((returnValue) => {
+            if (returnValue.response === 0) autoUpdater.quitAndInstall();
+          });
+        }
+      );
+      autoUpdater.on('error', (e) => {
+        console.error('There was a problem updating the application', e);
       });
-    });
-    autoUpdater.on('error', (e) => {
-      console.error('There was a problem updating the application', e);
-    });
+    }
   }
 });
 
