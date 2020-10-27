@@ -33,15 +33,15 @@ class TrayGenerator {
   rightClickMenu() {
     const menu = Menu.buildFromTemplate([
       {
-        label: 'Quit Flocc',
-        click: () => {
-          app.quit();
-        },
-      },
-      {
         label: 'Open Dev Tools',
         click: () => {
           this.mainWindow.webContents.openDevTools({ mode: 'detach' });
+        },
+      },
+      {
+        label: 'Quit Flocc',
+        click: () => {
+          app.quit();
         },
       },
     ]);

@@ -9,7 +9,7 @@ export function useSocket(endpoint, user) {
     let socket = null;
 
     async function connectSocket() {
-      const idToken = await user.getIdToken();
+      const idToken = await user.getIdToken(true);
       if (ignore) return;
       socket = io(endpoint, { query: { idToken } });
       socket.on('connect', () => {

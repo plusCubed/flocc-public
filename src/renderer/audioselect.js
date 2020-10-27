@@ -16,7 +16,7 @@ function AudioSelect({ kind, onDeviceChange }) {
     }
     try {
       const { remote } = require('electron');
-      if (remote.systemPreferences)
+      if (process.platform === 'darwin' && remote.systemPreferences)
         await remote.systemPreferences.askForMediaAccess('microphone');
     } catch (e) {
       console.error(e);

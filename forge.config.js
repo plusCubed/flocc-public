@@ -1,6 +1,9 @@
 const path = require('path');
 const githubAuthToken = require('./githubAuthToken.js');
-const notarizeOptions = require('./macNotarizeOptions.js');
+let notarizeOptions;
+if (process.platform === 'darwin') {
+  notarizeOptions = require('./macNotarizeOptions.js');
+}
 
 module.exports = {
   packagerConfig: {
