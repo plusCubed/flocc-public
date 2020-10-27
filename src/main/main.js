@@ -108,6 +108,7 @@ app.on('ready', () => {
         type: 'info',
         buttons: ['Restart', 'Later'],
         title: 'Application Update',
+        icon: path.join(__dirname, '..', '..', 'assets', 'icon.png'),
         message: releaseName,
         detail:
           'A new version has been downloaded. Restart to apply the update.',
