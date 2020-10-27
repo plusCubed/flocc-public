@@ -1,4 +1,4 @@
-const { app, Tray, Menu } = require('electron');
+const { app, Tray, Menu, autoUpdater } = require('electron');
 const path = require('path');
 
 class TrayGenerator {
@@ -32,6 +32,12 @@ class TrayGenerator {
 
   rightClickMenu() {
     const menu = Menu.buildFromTemplate([
+      {
+        label: 'Check for Updates...',
+        click: () => {
+          autoUpdater.checkForUpdates();
+        },
+      },
       {
         label: 'Open Dev Tools',
         click: () => {
