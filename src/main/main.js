@@ -167,6 +167,6 @@ ipcMain.on('sign-in-with-google', async (event) => {
   }
 });
 
-ipcMain.on('is-dev', async (event) => {
+ipcMain.on('is-dev', (event) => {
   event.returnValue = isDevelopment;
 });
