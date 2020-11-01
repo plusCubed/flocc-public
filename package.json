@@ -1,7 +1,7 @@
 {
   "name": "flocc",
   "productName": "Flocc",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Flocc",
   "main": ".webpack/main",
   "scripts": {
@@ -69,12 +69,10 @@
   "dependencies": {
     "@getstation/electron-google-oauth2": "^2.1.0",
     "@headlessui/react": "^0.2.0",
-    "electron-fetch": "^1.7.1",
     "electron-is-dev": "^1.2.0",
     "electron-positioner": "^4.1.0",
     "electron-squirrel-startup": "^1.0.0",
     "firebase": "^7.24.0",
-    "framer-motion": "^2.9.4",
     "is-electron": "^2.2.0",
     "react": "0.0.0-experimental-4ead6b530",
     "react-dom": "0.0.0-experimental-4ead6b530",

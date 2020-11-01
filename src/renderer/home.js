@@ -1,20 +1,9 @@
-import React, {
-  Suspense,
-  useCallback,
-  useEffect,
-  useState,
-  useRef,
-} from 'react';
-import {
-  useAuth,
-  useDatabase,
-  useDatabaseObjectData,
-  useUser,
-} from 'reactfire';
+import React, { Suspense, useCallback, useEffect, useState } from 'react';
+import { useAuth, useDatabase, useUser } from 'reactfire';
 import isElectron from 'is-electron';
-import { Menu, Transition } from '@headlessui/react';
+import { Transition } from '@headlessui/react';
 
-import { RoomAudio, RoomAudioWrapper, RoomState } from './roomAudio';
+import { RoomAudioWrapper, RoomState } from './roomAudio';
 import { useSocket, useSocketListener } from './socketHooks';
 import { AudioSelector } from './audioselect';
 import {
@@ -248,7 +237,7 @@ export function Home() {
               connectionStateByUid={connectionStateByUid}
             />
           </div>
-          {roomId && !isDevelopment ? <Music /> : null}
+          {roomId && isDevelopment ? <Music /> : null}
         </div>
       )}
     </div>

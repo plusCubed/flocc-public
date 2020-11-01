@@ -100,15 +100,14 @@ function Room({
   }
 
   return (
-    <button
+    <div
       className={
         'w-full text-left focus:outline-none p-2 pl-3 mb-2 flex shadow-inner rounded bg-gray-100 ' +
         (id !== currentRoomId
-          ? 'hover:bg-gray-200 border'
+          ? 'hover:bg-gray-200 border cursor-pointer'
           : 'border-solid border border-teal-700')
       }
       onClick={join}
-      disabled={id === currentRoomId}
     >
       <div className="flex-1 self-center">
         <span className="font-medium">{roomName}</span>
@@ -125,7 +124,7 @@ function Room({
           <ExitIcon width={16} height={16} />
         </Button>
       ) : null}
-    </button>
+    </div>
   );
 }
 

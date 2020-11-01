@@ -1,16 +1,13 @@
 const {
   app,
   BrowserWindow,
-  Menu,
   autoUpdater,
   dialog,
   ipcMain,
-  shell,
 } = require('electron');
 const path = require('path');
 const Positioner = require('electron-positioner');
 const isDevelopment = require('electron-is-dev');
-const fetch = require('electron-fetch').default;
 
 const TrayGenerator = require('./tray');
 const googleOAuthConfig = require('./config/googleOAuthConfig').default;
