@@ -29,23 +29,49 @@ const ICE_SERVERS = [
   },
 ];
 
-/**
- * @param {Object} props
- * @param props.micStream
- * @param props.outputDevice
- * @returns {JSX.Element}
- * @constructor
- */
+function openUserMedia(device) {
+  return navigator.mediaDevices.getUserMedia({
+    audio: {
+      deviceId: device,
+    },
+  });
+}
+
+function useDeviceStream(inputDevice) {
+  const [stream, setStream] = useState(null);
+  useEffect(() => {
+    openUserMedia(inputDevice)
+      .then((stream) => {
+        console.log('Device stream opened');
+        setStream(stream);
+      })
+      .catch((e) => {
+        console.error('Mic stream error', e);
+        alert(e);
+      });
+  }, [inputDevice]);
+  return stream;
+}
+
+export function RoomAudioWrapper({ inputDevice, ...rest }) {
+  const micStream = useDeviceStream(inputDevice);
+  return micStream ? (
+    <RoomAudio micStream={micStream} {...rest} />
+  ) : (
+    <div>Loading microphone...</div>
+  );
+}
+
 export function RoomAudio({
   socket,
+  mute,
   micStream,
   outputDevice,
   onConnectionStateChange,
 }) {
-  // {uid: {connection, stream, rtcRtpSender}}
-  const [connectionsByUid, setConnectionsByUid] = useState({});
-  const [connectionStateByUid, setConnectionStateByUid] = useState({});
-  const sendersByUid = useRef({});
+  const [connectionsByUid, setConnectionsByUid] = useState({}); // {connection, stream}
+  const [connectionStateByUid, setConnectionStateByUid] = useState({}); // RTCPeerConnectionState
+  const sendersByUid = useRef({}); // rtcRtpSender
 
   useEffect(() => {
     onConnectionStateChange(connectionStateByUid);
@@ -63,6 +89,16 @@ export function RoomAudio({
     };
   }, []);
 
+  // set mute
+  useEffect(() => {
+    /** @type MediaStreamTrack*/
+    const micTrack = micStream.getTracks()[0];
+    if (micTrack.enabled !== !mute) {
+      micTrack.enabled = !mute;
+    }
+  }, [micStream, mute]);
+
+  // update sendersByUid
   useEffect(() => {
     const micTrack = micStream.getTracks()[0];
     const entries = Object.entries(connectionsByUid);

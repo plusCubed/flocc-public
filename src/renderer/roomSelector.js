@@ -1,6 +1,19 @@
-import React, { Suspense, useCallback } from 'react';
-import { useDatabase, useDatabaseObjectData } from 'reactfire';
-import { AddIcon, Button, EnterIcon, ExitIcon } from './ui';
+import React, { Suspense, useCallback, useEffect, useState } from 'react';
+import {
+  useAuth,
+  useDatabase,
+  useDatabaseObjectData,
+  useUser,
+} from 'reactfire';
+import {
+  AddIcon,
+  Button,
+  EnterIcon,
+  ExitIcon,
+  MatMicrophoneIcon,
+  MatMicrophoneOffIcon,
+  MicrophoneOffIcon,
+} from './ui';
 import { RoomState } from './roomAudio';
 import usePromise from 'react-promise-suspense';
 import birds from './birds';
@@ -9,7 +22,7 @@ import birds from './birds';
  * @param {firebase.database.Reference} ref
  * @param childKeys
  */
-function useDatabaseObjectDataPartial(ref, childKeys) {
+function useDatabaseObjectDataPartialOnce(ref, childKeys) {
   async function getPartial(ref, keys) {
     /** @type firebase.database.DataSnapshot[] */
     const docSnapshots = await Promise.all(
@@ -31,16 +44,34 @@ function RoomUsers({ currentRoomId, roomId, connectionStateByUid }) {
     database.ref(`rooms/${roomId}/users`)
   );
   const userIds = Object.keys(roomUsers);
-  const userDocs = useDatabaseObjectDataPartial(database.ref('users'), userIds);
+  const userDocs = useDatabaseObjectDataPartialOnce(
+    database.ref('users'),
+    userIds
+  );
+  const currentUid = useUser().uid;
 
   return (
     <>
-      {Object.entries(userDocs).map(([uid, userDoc]) => (
-        <div key={uid} className="flex">
-          <div className="px-1">{userDoc.displayName}</div>
-          {currentRoomId ? <div>{connectionStateByUid[uid]}</div> : null}
-        </div>
-      ))}
+      {userIds.map((uid) => {
+        const nameClass =
+          roomId === currentRoomId &&
+          currentUid !== uid &&
+          connectionStateByUid[uid] !== 'connected'
+            ? 'text-gray-500'
+            : '';
+        return (
+          <div key={uid} className="flex items-center">
+            <div className={'px-1 ' + nameClass}>
+              {userDocs[uid].displayName}
+            </div>
+            <div className="text-gray-500">
+              {roomUsers[uid].mute ? (
+                <MatMicrophoneOffIcon width={18} height={18} />
+              ) : null}
+            </div>
+          </div>
+        );
+      })}
     </>
   );
 }
@@ -69,19 +100,19 @@ function Room({
   }
 
   return (
-    <div
-      key={id}
+    <button
       className={
-        'p-2 pl-3 mb-2 flex shadow-inner rounded bg-gray-100' +
+        'w-full text-left focus:outline-none p-2 pl-3 mb-2 flex shadow-inner rounded bg-gray-100 ' +
         (id !== currentRoomId
-          ? ' hover:bg-gray-200 cursor-pointer border'
-          : ' border-solid border border-teal-700')
+          ? 'hover:bg-gray-200 border'
+          : 'border-solid border border-teal-700')
       }
       onClick={join}
+      disabled={id === currentRoomId}
     >
       <div className="flex-1 self-center">
         <span className="font-medium">{roomName}</span>
-        <Suspense fallback={<span>Loading...</span>}>
+        <Suspense fallback={<div></div>}>
           <RoomUsers
             currentRoomId={currentRoomId}
             roomId={id}
@@ -94,7 +125,7 @@ function Room({
           <ExitIcon width={16} height={16} />
         </Button>
       ) : null}
-    </div>
+    </button>
   );
 }
 

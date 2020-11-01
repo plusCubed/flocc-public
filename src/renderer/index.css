@@ -13,3 +13,7 @@ html, body, #root {
 .small-caps {
     font-variant: small-caps;
 }
+
+.bg-overlay {
+    background-color: rgba(0, 0, 0, 0.05);
+}

@@ -38,7 +38,7 @@ const createWindow = () => {
       nodeIntegration: true,
       enableRemoteModule: true,
     },
-    icon: path.join(__dirname, '../../assets/icon.ico'),
+    icon: path.join(__dirname, '../assets/icon.ico'),
     maximizable: false,
     fullscreenable: false,
   });

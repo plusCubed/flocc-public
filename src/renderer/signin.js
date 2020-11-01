@@ -1,22 +1,8 @@
 import { useAuth } from 'reactfire';
 import React, { useCallback } from 'react';
 import isElectron from 'is-electron';
-/*import googleOAuthConfig from '../main/config/googleOAuthConfig';
-
-let electronOAuth = null;
-if (isElectron()) {
-  const ElectronGoogleOAuth2 = require('@getstation/electron-google-oauth2')
-    .default;
-  electronOAuth = new ElectronGoogleOAuth2(
-    googleOAuthConfig.clientId,
-    googleOAuthConfig.clientSecret,
-    [],
-    {
-      // TODO: Change
-      successRedirectURL: 'https://flocc.app/oauth',
-    }
-  );
-}*/
+import { Button } from './ui';
+import Icon from '../assets/icon.png';
 
 export function SignInForm() {
   const auth = useAuth();
@@ -49,13 +35,11 @@ export function SignInForm() {
   }, [auth, GoogleAuthProvider]);
 
   return (
-    <div className="h-screen flex items-center justify-center">
-      <button
-        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-        onClick={signIn}
-      >
+    <div className="h-screen flex flex-col items-center justify-center">
+      <img src={Icon} alt="Flocc Icon" className="w-12 mb-2" />
+      <Button onClick={signIn} className="py-2 px-4">
         Sign in with Google
-      </button>
+      </Button>
     </div>
   );
 }

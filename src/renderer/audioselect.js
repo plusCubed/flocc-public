@@ -9,7 +9,7 @@ async function getConnectedDevices(type) {
   return devices.filter((device) => device.kind === type);
 }
 
-function AudioSelect({ kind, onDeviceChange }) {
+function AudioSelect({ kind, device, onDeviceChange }) {
   usePromise(async () => {
     if (!isElectron() || require('electron').ipcRenderer.sendSync('is-dev')) {
       return;
@@ -23,15 +23,14 @@ function AudioSelect({ kind, onDeviceChange }) {
     }
   }, []);
   const devices = usePromise(getConnectedDevices, [kind]);
-  const [selected, setSelected] = useState(devices[0].deviceId);
-  const handleSelectChange = useCallback((event) => {
-    setSelected(event.target.value);
-  }, []);
-  useEffect(() => {
-    onDeviceChange(selected);
-  }, [onDeviceChange, selected]);
+  const handleSelectChange = useCallback(
+    (event) => {
+      onDeviceChange(event.target.value);
+    },
+    [onDeviceChange]
+  );
   return (
-    <Select value={selected} onChange={handleSelectChange}>
+    <Select value={device} onChange={handleSelectChange}>
       {devices.map((input) => (
         <Option key={input.deviceId} value={input.deviceId}>
           {input.label}
@@ -41,13 +40,17 @@ function AudioSelect({ kind, onDeviceChange }) {
   );
 }
 
-export function AudioSelector({ kind, icon, onDeviceChange }) {
+export function AudioSelector({ kind, icon, device, onDeviceChange }) {
   return (
     <div className="flex flex-row overflow-x-hidden pb-1 items-center">
       {icon}
       <div className="flex-1">
         <Suspense fallback={<span>Loading...</span>}>
-          <AudioSelect kind={kind} onDeviceChange={onDeviceChange} />
+          <AudioSelect
+            kind={kind}
+            device={device}
+            onDeviceChange={onDeviceChange}
+          />
         </Suspense>
       </div>
     </div>
