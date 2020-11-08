@@ -20,15 +20,24 @@ export function useSocket(endpoint, user) {
         console.log('Disconnected from signaling server');
         setConnected(false);
       });
-      socket.on('error', (e) => {
-        console.error('Signaling socket error', e);
+      socket.on('error', async (e) => {
+        console.error('Signaling socket error:', e);
+        socket.disconnect();
+        if (e === 'forbidden') {
+          setTimeout(async () => {
+            console.log('attempt reconnect');
+            const idToken = await user.getIdToken(false);
+            socket.io.opts.query = { idToken };
+            socket.connect();
+          }, 1000);
+        }
       });
       setSocket(socket);
     }
 
     connectSocket();
     return () => {
-      if (socket) socket.close();
+      if (socket) socket.disconnect();
       ignore = true;
     };
   }, [endpoint, user]);
