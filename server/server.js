@@ -4,10 +4,12 @@ const http = require('http');
 const https = require('https');
 const admin = require('firebase-admin');
 const fs = require('fs');
+const cors = require('cors');
 
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
 const app = express();
+app.use(cors());
 const server = isDevelopment
   ? http.createServer(app)
   : https.createServer(
@@ -17,7 +19,17 @@ const server = isDevelopment
       },
       app
     );
-const io = require('socket.io').listen(server);
+const io = require('socket.io').listen(server, {
+  handlePreflightRequest: (req, res) => {
+    const headers = {
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Credentials': true,
+    };
+    res.writeHead(200, headers);
+    res.end();
+  },
+});
 
 const serviceAccount = require('./service-account.json');
 admin.initializeApp({
@@ -25,7 +37,7 @@ admin.initializeApp({
   databaseURL: 'https://floccapp.firebaseio.com',
 });
 
-async function cleanupRooms() {
+async function cleanUpRooms() {
   const rooms = (await admin.database().ref('rooms').once('value')).val();
   for (const [room, roomDoc] of Object.entries(rooms)) {
     if (!roomDoc.users && !roomDoc.permanent) {
@@ -33,7 +45,7 @@ async function cleanupRooms() {
     }
   }
 }
-cleanupRooms();
+cleanUpRooms();
 
 // Get PORT from env variable else assign 3000 for development
 const PORT = isDevelopment ? process.env.PORT || 3010 : 8443;
@@ -44,12 +56,60 @@ server.listen(PORT, null, function () {
 const roomToSockets = {}; // sets
 const uidToSocket = {};
 
+function getRooms(socket) {
+  return Object.keys(socket.rooms).filter((room) => room !== socket.id);
+}
+
+function leaveRoom(socket, room) {
+  console.log(`[${socket.id}] leave room ${room}`);
+  socket.leave(room);
+  const database = admin.database();
+
+  const uid = socket.user.uid;
+  socket.to(room).emit('removePeer', {
+    peerSocketId: socket.id,
+    peerUid: uid,
+  });
+  for (const peerSocket of roomToSockets[room]) {
+    socket.emit('removePeer', {
+      peerSocketId: peerSocket.id,
+      peerUid: peerSocket.user.uid,
+    });
+  }
+  roomToSockets[room].delete(socket);
+
+  // Note: Don't use socket anymore, might not exist if disconnecting
+  return (async () => {
+    try {
+      await database.ref(`rooms/${room}/users/${uid}`).remove();
+
+      // Delete impromptu room
+      const roomDoc = (await database.ref(`rooms/${room}`).once('value')).val();
+      if (!roomDoc.users && !roomDoc.permanent) {
+        await database.ref(`rooms/${room}`).remove();
+      }
+    } catch (ignored) {}
+  })();
+}
+
+function leaveAllRooms(socket) {
+  const rooms = getRooms(socket);
+  if (rooms.length > 1) {
+    console.warn(`[${socket.id}] socket in more than 1 room`);
+  }
+  return Promise.all(rooms.map((room) => leaveRoom(socket, room)));
+}
+
 io.use(async (socket, next) => {
   const { idToken } = socket.handshake.query;
   try {
     console.log('verifying id token');
     socket.user = await admin.auth().verifyIdToken(idToken);
-    uidToSocket[socket.user.uid] = socket;
+    const uid = socket.user.uid;
+    if (uid in uidToSocket) {
+      await leaveAllRooms(uidToSocket[uid]);
+    }
+    uidToSocket[uid] = socket;
     console.log('token verified');
     next();
   } catch (e) {
@@ -61,52 +121,6 @@ io.on('connection', (socket) => {
   // const socketHostName = socket.handshake.headers.host.split(':')[0];
   console.log(`[${socket.id}] connection accepted`);
 
-  function leaveRoom(room) {
-    console.log(`[${socket.id}] leave room ${room}`);
-    socket.leave(room);
-    const database = admin.database();
-
-    const uid = socket.user.uid;
-    socket.to(room).emit('removePeer', {
-      peerSocketId: socket.id,
-      peerUid: uid,
-    });
-    for (const peerSocket of roomToSockets[room]) {
-      socket.emit('removePeer', {
-        peerSocketId: peerSocket.id,
-        peerUid: peerSocket.user.uid,
-      });
-    }
-    roomToSockets[room].delete(socket);
-
-    // Note: Don't use socket anymore, might not exist if disconnecting
-    return (async () => {
-      try {
-        await database.ref(`rooms/${room}/users/${uid}`).remove();
-
-        // Delete impromptu room
-        const roomDoc = (
-          await database.ref(`rooms/${room}`).once('value')
-        ).val();
-        if (!roomDoc.users && !roomDoc.permanent) {
-          await database.ref(`rooms/${room}`).remove();
-        }
-      } catch (ignored) {}
-    })();
-  }
-
-  function getRooms() {
-    return Object.keys(socket.rooms).filter((room) => room !== socket.id);
-  }
-
-  function leaveAllRooms() {
-    const rooms = getRooms();
-    if (rooms.length > 1) {
-      console.warn(`[${socket.id}] socket in more than 1 room`);
-    }
-    return Promise.all(rooms.map(leaveRoom));
-  }
-
   socket.on('disconnect', () => {
     console.log(`[${socket.id}] disconnected`);
   });
@@ -114,16 +128,14 @@ io.on('connection', (socket) => {
   socket.on('disconnecting', () => {
     console.log(`[${socket.id}] disconnecting`);
     delete uidToSocket[socket.user.uid];
-    leaveAllRooms();
+    leaveAllRooms(socket);
   });
 
   socket.on('join', async (msg) => {
     console.log(`[${socket.id}] join `, msg);
     const { room } = msg;
 
-    if (getRooms().length > 0) {
-      await leaveAllRooms();
-    }
+    await leaveAllRooms(socket);
 
     socket.join(room);
     socket.emit(`joined`, { room });
@@ -154,11 +166,10 @@ io.on('connection', (socket) => {
     roomToSockets[room].add(socket);
   });
 
-  socket.on('leave', () => {
+  socket.on('leave', async () => {
     console.log(`[${socket.id}] leave all rooms`);
-    leaveAllRooms().then(() => {
-      socket.emit('left');
-    });
+    await leaveAllRooms(socket);
+    socket.emit('left');
   });
 
   socket.on('relayICECandidate', (msg) => {
