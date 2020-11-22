@@ -1,4 +1,10 @@
-import React, { Suspense, useCallback, useEffect, useState } from 'react';
+import React, {
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { useAuth, useDatabase, useUser } from 'reactfire';
 import isElectron from 'is-electron';
 import { Transition } from '@headlessui/react';
@@ -34,21 +40,20 @@ function ServerDisconnnected() {
   );
 }
 
+function usePrevious(value) {
+  const ref = useRef();
+  useEffect(() => {
+    ref.current = value;
+  });
+  return ref.current;
+}
+
 function useSocketRoom(socket, connected) {
   const database = useDatabase();
   const uid = useUser().uid;
 
   const [roomId, setRoomId] = useState('');
   const [roomState, setRoomState] = useState(RoomState.NONE);
-  useEffect(() => {
-    if (!socket || !connected) return;
-
-    if (roomId) {
-      socket.emit('join', { room: roomId });
-    } else {
-      socket.emit('leave');
-    }
-  }, [connected, roomId, socket]);
 
   const handleJoined = useCallback(({ room }) => {
     setRoomId(room);
@@ -66,19 +71,33 @@ function useSocketRoom(socket, connected) {
 
   const joinRoom = useCallback(
     async (id) => {
-      console.info('Joining room', roomId);
+      // assume connected
+      console.info('Joining room', id);
       setRoomId(id);
       setRoomState(RoomState.JOINING);
       await database.ref(`rooms/${id}/users/${uid}`).set({ mute: false });
+      socket.emit('join', { room: id });
     },
-    [database, roomId, uid]
+    [database, socket, uid]
   );
   const leaveRoom = useCallback(async () => {
+    // assume connected
     console.info('Leaving room', roomId);
     setRoomId('');
     setRoomState(RoomState.LEAVING);
     await database.ref(`rooms/${roomId}/users/${uid}`).remove();
-  }, [roomId, database, uid]);
+    socket.emit('leave');
+  }, [roomId, database, uid, socket]);
+
+  const prevConnected = usePrevious(connected);
+  useEffect(() => {
+    if (!socket) return;
+
+    // resume connection to room after losing connection
+    if (!prevConnected && connected && roomId) {
+      joinRoom(roomId);
+    }
+  }, [connected, joinRoom, prevConnected, roomId, socket]);
   return { roomId, roomState, joinRoom, leaveRoom };
 }
 
@@ -133,7 +152,7 @@ function SettingsDropdown({
         leaveFrom="transform scale-100 opacity-100"
         leaveTo="transform scale-95 opacity-0"
       >
-        <div className="absolute right-0 w-64 mt-2 origin-top-right bg-white border border-gray-200 divide-y divide-gray-100 rounded-md shadow-lg outline-none p-2">
+        <div className="absolute right-0 w-64 mt-2 origin-top-right bg-white border border-gray-200 rounded-md shadow-lg outline-none p-2">
           <AudioSelector
             kind="audioinput"
             icon={<MicrophoneIcon className="w-4 h-4 mr-1" />}
@@ -146,7 +165,7 @@ function SettingsDropdown({
             device={outputDevice}
             onDeviceChange={setOutputDevice}
           />
-          <Button onClick={signOut} className="text-sm">
+          <Button onClick={signOut} className="text-sm mt-1">
             Sign out
           </Button>
         </div>

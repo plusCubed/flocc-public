@@ -71,7 +71,7 @@ export function RoomAudio({
 }) {
   const [connectionsByUid, setConnectionsByUid] = useState({}); // {connection, stream}
   const [connectionStateByUid, setConnectionStateByUid] = useState({}); // RTCPeerConnectionState
-  const sendersByUid = useRef({}); // rtcRtpSender
+  const rtpSendersByUid = useRef({}); // rtcRtpSender
 
   useEffect(() => {
     onConnectionStateChange(connectionStateByUid);
@@ -98,14 +98,14 @@ export function RoomAudio({
     }
   }, [micStream, mute]);
 
-  // update sendersByUid
+  // update rtpSendersByUid
   useEffect(() => {
     const micTrack = micStream.getTracks()[0];
     const entries = Object.entries(connectionsByUid);
 
     for (const [peerUid, { connection }] of entries) {
       /** @type RTCRtpSender */
-      const sender = sendersByUid.current[peerUid];
+      const sender = rtpSendersByUid.current[peerUid];
       if (sender) {
         if (sender.track.id !== micTrack.id) {
           console.log(`[${peerUid}] replace mic track`);
@@ -115,17 +115,17 @@ export function RoomAudio({
         }
       } else {
         console.log(`[${peerUid}] add mic track`);
-        sendersByUid.current[peerUid] = connection.addTrack(
+        rtpSendersByUid.current[peerUid] = connection.addTrack(
           micTrack,
           micStream
         );
       }
     }
 
-    const senderUids = Object.keys(sendersByUid.current);
+    const senderUids = Object.keys(rtpSendersByUid.current);
     for (const uid of senderUids) {
       if (!(uid in connectionsByUid)) {
-        delete sendersByUid.current[uid];
+        delete rtpSendersByUid.current[uid];
       }
     }
   }, [connectionsByUid, micStream]);
@@ -156,7 +156,7 @@ export function RoomAudio({
           }));
         });
         // Add mic stream to connection
-        sendersByUid.current[peerUid] = connection.addTrack(
+        rtpSendersByUid.current[peerUid] = connection.addTrack(
           micStream.getTracks()[0],
           micStream
         );
@@ -201,17 +201,15 @@ export function RoomAudio({
 
   const removePeer = useCallback(({ peerUid }) => {
     setConnectionStateByUid((connectionStateByUid) => {
-      const connectionStateByUidCopy = { ...connectionStateByUid };
-      delete connectionStateByUidCopy[peerUid];
-      return connectionStateByUidCopy;
+      const { [peerUid]: _, ...res } = { ...connectionStateByUid };
+      return res;
     });
     setConnectionsByUid((connectionsByUid) => {
-      const connectionsByUidCopy = { ...connectionsByUid };
-      if (peerUid in connectionsByUidCopy) {
-        connectionsByUidCopy[peerUid].connection.close();
-        delete connectionsByUidCopy[peerUid];
+      if (peerUid in connectionsByUid) {
+        connectionsByUid[peerUid].connection.close();
       }
-      return connectionsByUidCopy;
+      const { [peerUid]: _, ...res } = { ...connectionsByUid };
+      return res;
     });
   }, []);
   useSocketListener(socket, 'removePeer', removePeer);

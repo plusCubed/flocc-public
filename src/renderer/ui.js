@@ -123,7 +123,7 @@ export function Select({ children, className, ...rest }) {
   return (
     <select
       className={
-        'inline-flex justify-center w-full rounded-md border border-gray-300 px-2 py-1 bg-white text-sm leading-5 font-medium text-gray-800 hover:text-gray-700 focus:outline-none focus:border-blue-300 focus:shadow-outline-blue active:bg-gray-100 active:text-gray-800 cursor-pointer transition ease-in-out duration-150 ' +
+        'inline-flex justify-center w-full rounded-md border border-gray-300 px-2 py-1 bg-white text-sm leading-5 font-medium text-gray-800 hover:text-gray-700 focus:outline-none focus:ring-teal-300 focus:ring-2 active:bg-gray-100 active:text-gray-800 cursor-pointer transition ease-in-out duration-150 ' +
         className
       }
       {...rest}
