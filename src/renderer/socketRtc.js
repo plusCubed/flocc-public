@@ -3,6 +3,7 @@ import 'webrtc-adapter';
 
 import { Audio } from './ui';
 import { useSocketListener } from './socketHooks';
+import { getOSMicPermissionGranted } from './micPermission';
 
 export const RoomState = {
   NONE: 'NONE',
@@ -29,58 +30,26 @@ const ICE_SERVERS = [
   },
 ];
 
-function openUserMedia(device) {
-  return navigator.mediaDevices.getUserMedia({
-    audio: {
-      deviceId: device,
-    },
-  });
-}
-
-function useDeviceStream(inputDevice) {
-  const [stream, setStream] = useState(null);
-  useEffect(() => {
-    openUserMedia(inputDevice)
-      .then((stream) => {
-        console.log('Device stream opened');
-        setStream(stream);
-      })
-      .catch((e) => {
-        console.error('Mic stream error', e);
-        alert(e);
-      });
-  }, [inputDevice]);
-  return stream;
-}
-
-export function RoomAudioWrapper({ inputDevice, ...rest }) {
-  const micStream = useDeviceStream(inputDevice);
-  return micStream ? (
-    <RoomAudio micStream={micStream} {...rest} />
-  ) : (
-    <div>Loading microphone...</div>
-  );
-}
-
-export function RoomAudio({
+// Always loaded, just sectioned off
+export function SocketRtc({
   socket,
   mute,
-  micStream,
+  micStreamRef,
   outputDevice,
   onConnectionStateChange,
 }) {
-  const [connectionsByUid, setConnectionsByUid] = useState({}); // {connection, stream}
-  const [connectionStateByUid, setConnectionStateByUid] = useState({}); // RTCPeerConnectionState
+  const [uidToConnectionContext, setUidToConnectionContext] = useState({}); // {connection, stream}
+  const [uidToConnectionState, setUidToConnectionState] = useState({}); // RTCPeerConnectionState
   const rtpSendersByUid = useRef({}); // rtcRtpSender
 
   useEffect(() => {
-    onConnectionStateChange(connectionStateByUid);
-  }, [connectionStateByUid, onConnectionStateChange]);
+    onConnectionStateChange(uidToConnectionState);
+  }, [uidToConnectionState, onConnectionStateChange]);
 
   // cleanup
   useEffect(() => {
     return () => {
-      setConnectionsByUid((connectionsByUid) => {
+      setUidToConnectionContext((connectionsByUid) => {
         for (const { connection } of Object.values(connectionsByUid)) {
           connection.close();
         }
@@ -91,19 +60,22 @@ export function RoomAudio({
 
   // set mute
   useEffect(() => {
+    if (!micStreamRef.current) return;
     /** @type MediaStreamTrack*/
-    const micTrack = micStream.getTracks()[0];
+    const micTrack = micStreamRef.current.getTracks()[0];
     if (micTrack.enabled !== !mute) {
       micTrack.enabled = !mute;
     }
-  }, [micStream, mute]);
+  }, [micStreamRef, mute]);
 
   // update rtpSendersByUid
   useEffect(() => {
-    const micTrack = micStream.getTracks()[0];
-    const entries = Object.entries(connectionsByUid);
+    if (!micStreamRef.current) return;
 
-    for (const [peerUid, { connection }] of entries) {
+    const micTrack = micStreamRef.current.getTracks()[0];
+    const connections = Object.entries(uidToConnectionContext);
+
+    for (const [peerUid, { connection }] of connections) {
       /** @type RTCRtpSender */
       const sender = rtpSendersByUid.current[peerUid];
       if (sender) {
@@ -117,23 +89,35 @@ export function RoomAudio({
         console.log(`[${peerUid}] add mic track`);
         rtpSendersByUid.current[peerUid] = connection.addTrack(
           micTrack,
-          micStream
+          micStreamRef.current
         );
       }
     }
 
     const senderUids = Object.keys(rtpSendersByUid.current);
     for (const uid of senderUids) {
-      if (!(uid in connectionsByUid)) {
+      if (!(uid in uidToConnectionContext)) {
         delete rtpSendersByUid.current[uid];
       }
     }
-  }, [connectionsByUid, micStream]);
+  }, [uidToConnectionContext, micStreamRef]);
 
   const addPeer = useCallback(
-    ({ peerSocketId, peerUid, shouldCreateOffer }) => {
-      function createConnection(peerUid) {
-        console.info('Create peer connection to peer ', peerUid);
+    async ({ peerSocketId, peerUid, shouldCreateOffer }) => {
+      async function sendOffer(peerUid, connection) {
+        const offer = await connection.createOffer();
+        await connection.setLocalDescription(offer);
+
+        console.info(`[${peerUid}] sending offer`);
+        socket.emit('relaySessionDescription', {
+          peerUid: peerUid,
+          sessionDescription: offer.toJSON(),
+        });
+      }
+
+      async function createConnection() {
+        console.info(`[${peerUid}] adding peer`);
+        console.info(`[${peerUid}] create peer connection to peer`);
         const connection = new RTCPeerConnection({
           iceServers: ICE_SERVERS,
         });
@@ -150,61 +134,52 @@ export function RoomAudio({
         connection.addEventListener('connectionstatechange', () => {
           const state = connection.connectionState;
           console.log(`Connection state change: ${state}`);
-          setConnectionStateByUid((connectionStateByUid) => ({
+          setUidToConnectionState((connectionStateByUid) => ({
             ...connectionStateByUid,
             [peerUid]: state,
           }));
         });
         // Add mic stream to connection
         rtpSendersByUid.current[peerUid] = connection.addTrack(
-          micStream.getTracks()[0],
-          micStream
+          micStreamRef.current.getTracks()[0],
+          micStreamRef.current
         );
         // Listen for remote streams
-        const stream = new MediaStream();
+        const receivedStream = new MediaStream();
         connection.addEventListener('track', (event) => {
-          stream.addTrack(event.track, stream);
+          receivedStream.addTrack(event.track, receivedStream);
         });
-        return { connection, stream };
-      }
 
-      async function sendOffer(peerUid, connection) {
-        const offer = await connection.createOffer();
-        await connection.setLocalDescription(offer);
-
-        console.info(`[${peerUid}] sending offer`);
-        socket.emit('relaySessionDescription', {
-          peerUid: peerUid,
-          sessionDescription: offer.toJSON(),
-        });
-      }
-
-      setConnectionsByUid((connectionsByUid) => {
-        if (peerUid in connectionsByUid) {
-          console.warn(`[${peerUid}] peer already added`);
-          return connectionsByUid;
-        }
-        console.info(`[${peerUid}] adding peer`);
-        const connectionContext = createConnection(peerUid);
+        const connectionContext = { connection, stream: receivedStream };
         if (shouldCreateOffer) {
-          sendOffer(peerUid, connectionContext.connection);
+          await sendOffer(peerUid, connectionContext.connection);
         }
-        return {
-          ...connectionsByUid,
+        setUidToConnectionContext({
+          ...uidToConnectionContext,
           [peerUid]: connectionContext,
-        };
-      });
+        });
+      }
+
+      if (peerUid in uidToConnectionContext) {
+        return;
+      }
+      if (!micStreamRef.current) {
+        console.error('no mic stream, cannot start connection');
+        return;
+      }
+
+      await createConnection();
     },
-    [micStream, socket]
+    [micStreamRef, socket, uidToConnectionContext]
   );
   useSocketListener(socket, 'addPeer', addPeer);
 
   const removePeer = useCallback(({ peerUid }) => {
-    setConnectionStateByUid((connectionStateByUid) => {
+    setUidToConnectionState((connectionStateByUid) => {
       const { [peerUid]: _, ...res } = { ...connectionStateByUid };
       return res;
     });
-    setConnectionsByUid((connectionsByUid) => {
+    setUidToConnectionContext((connectionsByUid) => {
       if (peerUid in connectionsByUid) {
         connectionsByUid[peerUid].connection.close();
       }
@@ -221,11 +196,11 @@ export function RoomAudio({
         sessionDescription
       );
       const remoteDesc = new RTCSessionDescription(sessionDescription);
-      if (!(peerUid in connectionsByUid)) {
+      if (!(peerUid in uidToConnectionContext)) {
         console.error(`[${peerUid}] ERROR: peer uid not added`);
         return;
       }
-      const connection = connectionsByUid[peerUid].connection;
+      const connection = uidToConnectionContext[peerUid].connection;
       await connection.setRemoteDescription(remoteDesc);
 
       if (remoteDesc.type === 'offer') {
@@ -239,7 +214,7 @@ export function RoomAudio({
         });
       }
     },
-    [connectionsByUid, socket]
+    [uidToConnectionContext, socket]
   );
 
   useSocketListener(socket, 'sessionDescription', processSessionDescription);
@@ -247,25 +222,25 @@ export function RoomAudio({
   const processIceCandidate = useCallback(
     async ({ peerSocketId, peerUid, iceCandidate }) => {
       console.info(`[${peerUid}] received ice candidate`);
-      if (!(peerUid in connectionsByUid)) {
+      if (!(peerUid in uidToConnectionContext)) {
         console.error(`[${peerUid}] ERROR: peer uid not added`);
         return;
       }
       try {
-        await connectionsByUid[peerUid].connection.addIceCandidate(
+        await uidToConnectionContext[peerUid].connection.addIceCandidate(
           new RTCIceCandidate(iceCandidate)
         );
       } catch (e) {
         console.error('Error adding received ice candidate', e);
       }
     },
-    [connectionsByUid]
+    [uidToConnectionContext]
   );
   useSocketListener(socket, 'iceCandidate', processIceCandidate);
 
   return (
     <>
-      {Object.entries(connectionsByUid).map(
+      {Object.entries(uidToConnectionContext).map(
         ([peerUid, { connection, stream }]) => (
           <Audio
             key={peerUid}

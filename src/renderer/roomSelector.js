@@ -14,7 +14,7 @@ import {
   MatMicrophoneOffIcon,
   MicrophoneOffIcon,
 } from './ui';
-import { RoomState } from './roomAudio';
+import { RoomState } from './socketRtc';
 import usePromise from 'react-promise-suspense';
 import birds from './birds';
 
@@ -149,12 +149,9 @@ export function RoomSelector({
     }
   }
 
-  const createAndJoinRoom = () => {
-    const roomRef = database
-      .ref(`rooms`)
-      .push({ name: birds[Math.floor(Math.random() * birds.length)] });
-    joinRoom(roomRef.key);
-  };
+  const createAndJoinRoom = useCallback(() => {
+    joinRoom(null);
+  }, [joinRoom]);
 
   const transitioning =
     currentRoomState === RoomState.JOINING ||

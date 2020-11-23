@@ -1,27 +1,27 @@
 import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import usePromise from 'react-promise-suspense';
-import isElectron from 'is-electron';
 
 import { Option, Select } from './ui';
+import { getOSMicPermissionGranted } from './micPermission';
 
 async function getConnectedDevices(type) {
   const devices = await navigator.mediaDevices.enumerateDevices();
   return devices.filter((device) => device.kind === type);
 }
 
-function AudioSelect({ kind, device, onDeviceChange }) {
-  usePromise(async () => {
-    if (!isElectron() || require('electron').ipcRenderer.sendSync('is-dev')) {
-      return;
+export function useOSMicPermissionGranted() {
+  const [granted, setGranted] = useState(false);
+  useEffect(() => {
+    async function updateGranted() {
+      setGranted(await getOSMicPermissionGranted());
     }
-    try {
-      const { remote } = require('electron');
-      if (process.platform === 'darwin' && remote.systemPreferences)
-        await remote.systemPreferences.askForMediaAccess('microphone');
-    } catch (e) {
-      console.error(e);
-    }
+    updateGranted();
   }, []);
+  return granted;
+}
+
+function AudioSelect({ kind, device, onDeviceChange }) {
+  const micGranted = useOSMicPermissionGranted();
   const devices = usePromise(getConnectedDevices, [kind]);
   const handleSelectChange = useCallback(
     (event) => {
@@ -29,7 +29,7 @@ function AudioSelect({ kind, device, onDeviceChange }) {
     },
     [onDeviceChange]
   );
-  return (
+  return micGranted || kind !== 'audioinput' ? (
     <Select value={device} onChange={handleSelectChange}>
       {devices.map((input) => (
         <Option key={input.deviceId} value={input.deviceId}>
@@ -37,6 +37,8 @@ function AudioSelect({ kind, device, onDeviceChange }) {
         </Option>
       ))}
     </Select>
+  ) : (
+    <div>Mic permission denied</div>
   );
 }
 

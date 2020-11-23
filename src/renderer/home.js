@@ -9,9 +9,9 @@ import { useAuth, useDatabase, useUser } from 'reactfire';
 import isElectron from 'is-electron';
 import { Transition } from '@headlessui/react';
 
-import { RoomAudioWrapper, RoomState } from './roomAudio';
+import { SocketRtc, RoomState } from './socketRtc';
 import { useSocket, useSocketListener } from './socketHooks';
-import { AudioSelector } from './audioselect';
+import { AudioSelector } from './audioSelect';
 import {
   Button,
   MatMicrophoneIcon,
@@ -22,6 +22,8 @@ import {
 } from './ui';
 import { RoomSelector } from './roomSelector';
 import { Music } from './music';
+import { getOSMicPermissionGranted } from './micPermission';
+import birds from './birds';
 
 const isDevelopment =
   (isElectron() && require('electron').ipcRenderer.sendSync('is-dev')) ||
@@ -48,7 +50,28 @@ function usePrevious(value) {
   return ref.current;
 }
 
-function useSocketRoom(socket, connected) {
+function getAudioInputStream(device) {
+  return navigator.mediaDevices.getUserMedia({
+    audio: {
+      deviceId: device,
+    },
+  });
+}
+
+async function checkPermissionAndGetMicStream(inputDevice) {
+  console.info('Attempt get mic stream');
+  const granted = await getOSMicPermissionGranted();
+  if (!granted) {
+    throw new Error('Microphone permission is required to talk to friends');
+  }
+  const micStream = await getAudioInputStream(inputDevice);
+  if (!micStream) {
+    throw new Error('Microphone permission is required to talk to friends');
+  }
+  return micStream;
+}
+
+function useSocketRoom(socket, connected, inputDevice, micStreamRef) {
   const database = useDatabase();
   const uid = useUser().uid;
 
@@ -65,27 +88,49 @@ function useSocketRoom(socket, connected) {
   const handleLeft = useCallback(() => {
     setRoomId('');
     setRoomState(RoomState.NONE);
+    if (micStreamRef.current) {
+      for (const track of micStreamRef.current.getTracks()) {
+        track.stop();
+      }
+      micStreamRef.current = null;
+    }
     console.log('LEFT');
-  }, []);
+  }, [micStreamRef]);
   useSocketListener(socket, 'left', handleLeft);
 
   const joinRoom = useCallback(
     async (id) => {
-      // assume connected
+      // create room if id is null
+      try {
+        if (!micStreamRef.current) {
+          micStreamRef.current = await checkPermissionAndGetMicStream(
+            inputDevice
+          );
+        }
+      } catch (e) {
+        alert(e.message);
+        return;
+      }
+      if (!id) {
+        const roomRef = database
+          .ref(`rooms`)
+          .push({ name: birds[Math.floor(Math.random() * birds.length)] });
+        id = roomRef.key;
+      }
       console.info('Joining room', id);
       setRoomId(id);
       setRoomState(RoomState.JOINING);
-      await database.ref(`rooms/${id}/users/${uid}`).set({ mute: false });
+      database.ref(`rooms/${id}/users/${uid}`).set({ mute: false }).then();
       socket.emit('join', { room: id });
     },
-    [database, socket, uid]
+    [database, inputDevice, micStreamRef, socket, uid]
   );
   const leaveRoom = useCallback(async () => {
     // assume connected
     console.info('Leaving room', roomId);
     setRoomId('');
     setRoomState(RoomState.LEAVING);
-    await database.ref(`rooms/${roomId}/users/${uid}`).remove();
+    database.ref(`rooms/${roomId}/users/${uid}`).remove().then();
     socket.emit('leave');
   }, [roomId, database, uid, socket]);
 
@@ -95,7 +140,7 @@ function useSocketRoom(socket, connected) {
 
     // resume connection to room after losing connection
     if (!prevConnected && connected && roomId) {
-      joinRoom(roomId);
+      joinRoom(roomId).then();
     }
   }, [connected, joinRoom, prevConnected, roomId, socket]);
   return { roomId, roomState, joinRoom, leaveRoom };
@@ -188,9 +233,12 @@ export function Home() {
 
   const { socket, connected } = useSocket(SOCKET_ENDPOINT, user);
 
+  const micStreamRef = useRef(null);
   const { roomId, roomState, joinRoom, leaveRoom } = useSocketRoom(
     socket,
-    connected
+    connected,
+    inputDevice,
+    micStreamRef
   );
 
   const auth = useAuth();
@@ -239,12 +287,12 @@ export function Home() {
             />
           </div>
           <Suspense fallback={<div>Connecting...</div>}>
-            <RoomAudioWrapper
+            <SocketRtc
               socket={socket}
-              inputDevice={inputDevice}
               outputDevice={outputDevice}
               mute={mute}
               onConnectionStateChange={setConnectionStateByUid}
+              micStreamRef={micStreamRef}
             />
           </Suspense>
           <div className="overflow-y-auto flex-1">
