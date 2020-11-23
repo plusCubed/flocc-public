@@ -7,7 +7,7 @@ import {
 } from 'reactfire';
 import isElectron from 'is-electron';
 
-import firebaseConfig from './config/firebaseConfig';
+import firebaseConfig from '../config/firebaseConfig';
 import { SignInForm } from './signin';
 import { Home } from './home';
 import { ErrorBoundary } from './error';

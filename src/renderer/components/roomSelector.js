@@ -13,10 +13,10 @@ import {
   MatMicrophoneIcon,
   MatMicrophoneOffIcon,
   MicrophoneOffIcon,
-} from './ui';
+} from './reusableUi';
 import { RoomState } from './socketRtc';
 import usePromise from 'react-promise-suspense';
-import birds from './birds';
+import birds from '../util/birds';
 
 /**
  * @param {firebase.database.Reference} ref

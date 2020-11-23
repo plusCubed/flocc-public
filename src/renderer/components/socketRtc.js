@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import 'webrtc-adapter';
 
-import { Audio } from './ui';
-import { useSocketListener } from './socketHooks';
-import { getOSMicPermissionGranted } from './micPermission';
+import { Audio } from './reusableUi';
+import { useSocketListener } from '../util/socketHooks';
+import { getOSMicPermissionGranted } from '../util/micPermission';
 
 export const RoomState = {
   NONE: 'NONE',

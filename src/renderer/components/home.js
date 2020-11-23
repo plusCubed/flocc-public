@@ -10,7 +10,7 @@ import isElectron from 'is-electron';
 import { Transition } from '@headlessui/react';
 
 import { SocketRtc, RoomState } from './socketRtc';
-import { useSocket, useSocketListener } from './socketHooks';
+import { useSocket, useSocketListener } from '../util/socketHooks';
 import { AudioSelector } from './audioSelect';
 import {
   Button,
@@ -19,11 +19,11 @@ import {
   MicrophoneIcon,
   SettingsIcon,
   SpeakerIcon,
-} from './ui';
+} from './reusableUi';
 import { RoomSelector } from './roomSelector';
 import { Music } from './music';
-import { getOSMicPermissionGranted } from './micPermission';
-import birds from './birds';
+import { getOSMicPermissionGranted } from '../util/micPermission';
+import birds from '../util/birds';
 
 const isDevelopment =
   (isElectron() && require('electron').ipcRenderer.sendSync('is-dev')) ||
