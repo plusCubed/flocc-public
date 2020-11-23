@@ -28,8 +28,13 @@ admin.initializeApp({
 async function cleanUpRooms() {
   const rooms = (await admin.database().ref('rooms').once('value')).val();
   for (const [room, roomDoc] of Object.entries(rooms)) {
+    // Delete temporary rooms
     if (!roomDoc.users && !roomDoc.permanent) {
       await admin.database().ref(`rooms/${room}`).remove();
+    }
+    // Clear users from permanent rooms
+    if (roomDoc.permanent) {
+      await admin.database().ref(`rooms/${room}/users`).remove();
     }
   }
 }
