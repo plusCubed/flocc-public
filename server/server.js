@@ -4,12 +4,10 @@ const http = require('http');
 const https = require('https');
 const admin = require('firebase-admin');
 const fs = require('fs');
-const cors = require('cors');
 
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
 const app = express();
-app.use(cors());
 const server = isDevelopment
   ? http.createServer(app)
   : https.createServer(
@@ -19,17 +17,7 @@ const server = isDevelopment
       },
       app
     );
-const io = require('socket.io').listen(server, {
-  handlePreflightRequest: (req, res) => {
-    const headers = {
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Credentials': true,
-    };
-    res.writeHead(200, headers);
-    res.end();
-  },
-});
+const io = require('socket.io').listen(server);
 
 const serviceAccount = require('./service-account.json');
 admin.initializeApp({
@@ -107,7 +95,10 @@ io.use(async (socket, next) => {
     socket.user = await admin.auth().verifyIdToken(idToken);
     const uid = socket.user.uid;
     if (uid in uidToSocket) {
-      await leaveAllRooms(uidToSocket[uid]);
+      console.log(
+        `[${socket.id}] uid already connected, kicking ${uidToSocket[uid].id}`
+      );
+      uidToSocket[uid].disconnect(true);
     }
     uidToSocket[uid] = socket;
     console.log('token verified');
@@ -127,7 +118,9 @@ io.on('connection', (socket) => {
 
   socket.on('disconnecting', () => {
     console.log(`[${socket.id}] disconnecting`);
-    delete uidToSocket[socket.user.uid];
+    if (uidToSocket[socket.user.uid].id === socket.id) {
+      delete uidToSocket[socket.user.uid];
+    }
     leaveAllRooms(socket);
   });
 
@@ -203,7 +196,7 @@ io.on('connection', (socket) => {
     }
 
     console.log(
-      `[${socket.id}] relay SessionDescription to [${peerSocket.id}]`,
+      `[${socket.id}] relay SessionDescription to [${peerSocket.id}]: `,
       sessionDescription.type
     );
 

@@ -23,7 +23,7 @@
     "forge": "./forge.config.js"
   },
   "browserslist": [
-    "Electron 10.0"
+    "Electron 11.0"
   ],
   "devDependencies": {
     "@babel/core": "^7.12.7",
