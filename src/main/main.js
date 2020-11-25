@@ -35,7 +35,7 @@ const createWindow = () => {
       nodeIntegration: true,
       enableRemoteModule: true,
     },
-    icon: path.join(__dirname, '../assets/icon.ico'),
+    icon: path.join(__dirname, '..', 'assets', 'icon.ico'),
     maximizable: false,
     fullscreenable: false,
   });
@@ -105,7 +105,7 @@ app.on('ready', () => {
         type: 'info',
         buttons: ['Restart', 'Later'],
         title: 'Application Update',
-        icon: path.join(__dirname, '..', '..', 'assets', 'icon.png'),
+        icon: path.join(__dirname, '..', 'assets', 'icon.png'),
         message: releaseName,
         detail:
           'A new version has been downloaded. Restart to apply the update.',

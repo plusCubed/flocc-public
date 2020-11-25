@@ -10,7 +10,7 @@ module.exports = {
     name: 'Flocc',
     executableName: 'Flocc',
     asar: true,
-    icon: path.resolve(__dirname, 'src/assets/icon'),
+    icon: path.resolve(__dirname, 'src', 'assets', 'icon'),
     appBundleId: 'com.pluscubed.flocc',
     usageDescription: {
       Microphone: 'Allow microphone access to talk with friends',
@@ -29,6 +29,8 @@ module.exports = {
       name: '@electron-forge/maker-squirrel',
       config: {
         name: 'Flocc',
+        iconUrl: 'https://flocc.app/favicon.ico',
+        setupIcon: path.resolve(__dirname, 'src', 'assets', 'icon.ico'),
       },
     },
     {

@@ -210,9 +210,15 @@ function SettingsDropdown({
             device={outputDevice}
             onDeviceChange={setOutputDevice}
           />
-          <Button onClick={signOut} className="text-sm mt-1">
-            Sign out
-          </Button>
+          <div className="flex flex-row align-baseline  mt-1">
+            <Button onClick={signOut} className="text-sm">
+              Sign out
+            </Button>
+            <div className="flex-1" />
+            {isElectron() ? (
+              <div>v{require('electron').remote.app.getVersion()}</div>
+            ) : null}
+          </div>
         </div>
       </Transition>
     </div>
