@@ -1,4 +1,6 @@
 const colors = require('tailwindcss/colors');
+const defaultTheme = require('tailwindcss/defaultTheme');
+
 module.exports = {
   future: {
     removeDeprecatedGapUtilities: true,
@@ -6,9 +8,15 @@ module.exports = {
   },
   purge: ['./src/**/*.html', './src/**/*.css', './src/**/*.js'],
   theme: {
+    fontFamily: {
+      inter: ['Inter'],
+      sans: ['Open Sans', ...defaultTheme.fontFamily.sans],
+      mono: ['Roboto Mono', ...defaultTheme.fontFamily.mono],
+    },
     colors: {
       white: '#FFFFFF',
       black: '#000000',
+      transparent: 'rgba(0,0,0,0)',
       bluegray: colors.blueGray,
       coolgray: colors.coolGray,
       gray: colors.gray,
@@ -41,5 +49,8 @@ module.exports = {
     'focus-visible',
     'active',
   ],
-  plugins: [],
+  plugins: [
+    require('@tailwindcss/aspect-ratio'),
+    require('@tailwindcss/forms'),
+  ],
 };

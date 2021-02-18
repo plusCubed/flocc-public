@@ -25,13 +25,15 @@ module.exports = [
         presets: [['@babel/preset-env'], ['@babel/preset-react']],
         plugins: [
           '@babel/plugin-proposal-class-properties',
+          '@babel/plugin-proposal-optional-chaining',
+          '@babel/plugin-proposal-nullish-coalescing-operator',
           isDevelopment && require.resolve('react-refresh/babel'),
         ].filter(Boolean),
       },
     },
   },
   {
-    test: /\.(png|svg|jpg|gif)$/,
+    test: /\.(woff|woff2|png|svg|jpg|gif)$/,
     use: ['file-loader'],
   },
   // Put your webpack loader rules in this array.  This is where you would put

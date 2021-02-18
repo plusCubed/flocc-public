@@ -29,8 +29,8 @@ app.on('before-quit', () => {
 const createWindow = () => {
   // Create the browser window.
   mainWindow = new BrowserWindow({
-    width: 300,
-    height: 600,
+    width: 320,
+    height: 770,
     webPreferences: {
       nodeIntegration: true,
       enableRemoteModule: true,
@@ -60,10 +60,13 @@ const createWindow = () => {
       tray.hideWindow();
     }
   });
-  /*mainWindow.webContents.on('will-navigate', (e, url) => {
+
+  const openExternalListener = (e, url) => {
     e.preventDefault();
     require('electron').shell.openExternal(url);
-  });*/
+  };
+  mainWindow.webContents.on('will-navigate', openExternalListener);
+  mainWindow.webContents.on('new-window', openExternalListener);
 
   mainWindow.setMenuBarVisibility(false);
 
@@ -137,14 +140,6 @@ app.on('activate', () => {
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and import them here.
 
-// const ytsr = require('ytsr');
-// const ytdl = require('./ytStream');
-// ipcMain.on('yt-req', async (event, arg) => {
-//   console.log(arg);
-//   const url = await ytdl(arg);
-//   console.log(url);
-//   event.reply('yt-res', url);
-// });
 const ElectronGoogleOAuth2 = require('@getstation/electron-google-oauth2')
   .default;
 const electronOAuth = new ElectronGoogleOAuth2(

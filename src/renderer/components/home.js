@@ -1,15 +1,9 @@
-import React, {
-  Suspense,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useAuth, useDatabase, useUser } from 'reactfire';
 import isElectron from 'is-electron';
 import { Transition } from '@headlessui/react';
 
-import { SocketRtc, RoomState } from './socketRtc';
+import { RoomState, RoomRtc } from './roomRtc';
 import { useSocket, useSocketListener } from '../util/socketHooks';
 import { AudioSelector } from './audioSelect';
 import {
@@ -19,20 +13,20 @@ import {
   MicrophoneIcon,
   SettingsIcon,
   SpeakerIcon,
-} from './reusableUi';
+} from './ui';
 import { RoomSelector } from './roomSelector';
 import { Music } from './music';
 import { getOSMicPermissionGranted } from '../util/micPermission';
 import birds from '../util/birds';
+import { usePrevious } from '../util/usePrev';
 
 const isDevelopment =
   (isElectron() && require('electron').ipcRenderer.sendSync('is-dev')) ||
   (!isElectron() && window.location.hostname === 'localhost');
 
-const SOCKET_ENDPOINT =
-  /*isDevelopment
+const SOCKET_ENDPOINT = isDevelopment
   ? 'http://localhost:3010'
-  :*/ 'https://server.flocc.app:8443';
+  : 'https://server.flocc.app:8443';
 
 function ServerDisconnnected() {
   return (
@@ -40,14 +34,6 @@ function ServerDisconnnected() {
       Connecting to server...
     </div>
   );
-}
-
-function usePrevious(value) {
-  const ref = useRef();
-  useEffect(() => {
-    ref.current = value;
-  });
-  return ref.current;
 }
 
 function getAudioInputStream(device) {
@@ -59,7 +45,6 @@ function getAudioInputStream(device) {
 }
 
 async function checkPermissionAndGetMicStream(inputDevice) {
-  console.info('Attempt get mic stream');
   const granted = await getOSMicPermissionGranted();
   if (!granted) {
     throw new Error('Microphone permission is required to talk to friends');
@@ -68,49 +53,56 @@ async function checkPermissionAndGetMicStream(inputDevice) {
   if (!micStream) {
     throw new Error('Microphone permission is required to talk to friends');
   }
+  console.info('Mic stream obtained');
   return micStream;
 }
 
-function useSocketRoom(socket, connected, inputDevice, micStreamRef) {
+function useSocketRoom(socket, connected, inputDevice) {
   const database = useDatabase();
   const uid = useUser().uid;
 
+  // TODO: Use reducer (an actual state machine can you imagine)
   const [roomId, setRoomId] = useState('');
   const [roomState, setRoomState] = useState(RoomState.NONE);
 
   const handleJoined = useCallback(({ room }) => {
+    console.log(`socket: joined ${room}`);
     setRoomId(room);
     setRoomState(RoomState.JOINED);
-    console.log('JOINED');
   }, []);
   useSocketListener(socket, 'joined', handleJoined);
 
+  const [micStream, setMicStream] = useState(null);
+
   const handleLeft = useCallback(() => {
+    console.log('socket: left');
     setRoomId('');
     setRoomState(RoomState.NONE);
-    if (micStreamRef.current) {
-      for (const track of micStreamRef.current.getTracks()) {
-        track.stop();
-      }
-      micStreamRef.current = null;
-    }
-    console.log('LEFT');
-  }, [micStreamRef]);
+  }, []);
   useSocketListener(socket, 'left', handleLeft);
+
+  const transitioning =
+    roomState === RoomState.JOINING || roomState === RoomState.LEAVING;
+
+  const leaveRoom = useCallback(async () => {
+    if (transitioning) return;
+    if (roomState !== RoomState.JOINED) return; // Not in a room
+
+    // assume connected
+    console.info('Leaving room', roomId);
+    setRoomId('');
+    setRoomState(RoomState.LEAVING);
+    database.ref(`rooms/${roomId}/users/${uid}`).remove().then();
+    socket.emit('leave');
+  }, [transitioning, roomState, roomId, database, uid, socket]);
 
   const joinRoom = useCallback(
     async (id) => {
+      if (transitioning) return;
+      if (id === roomId) return; // already in this room
+      if (roomState === RoomState.JOINED) await leaveRoom();
+
       // create room if id is null
-      try {
-        if (!micStreamRef.current) {
-          micStreamRef.current = await checkPermissionAndGetMicStream(
-            inputDevice
-          );
-        }
-      } catch (e) {
-        alert(e.message);
-        return;
-      }
       if (!id) {
         const roomRef = database
           .ref(`rooms`)
@@ -123,16 +115,8 @@ function useSocketRoom(socket, connected, inputDevice, micStreamRef) {
       database.ref(`rooms/${id}/users/${uid}`).set({ mute: false }).then();
       socket.emit('join', { room: id });
     },
-    [database, inputDevice, micStreamRef, socket, uid]
+    [database, leaveRoom, roomId, roomState, socket, transitioning, uid]
   );
-  const leaveRoom = useCallback(async () => {
-    // assume connected
-    console.info('Leaving room', roomId);
-    setRoomId('');
-    setRoomState(RoomState.LEAVING);
-    database.ref(`rooms/${roomId}/users/${uid}`).remove().then();
-    socket.emit('leave');
-  }, [roomId, database, uid, socket]);
 
   const prevConnected = usePrevious(connected);
   useEffect(() => {
@@ -143,7 +127,37 @@ function useSocketRoom(socket, connected, inputDevice, micStreamRef) {
       joinRoom(roomId).then();
     }
   }, [connected, joinRoom, prevConnected, roomId, socket]);
-  return { roomId, roomState, joinRoom, leaveRoom };
+
+  useEffect(() => {
+    let didCancel = false;
+
+    if (roomState === RoomState.JOINED) {
+      (async () => {
+        try {
+          const newStream = await checkPermissionAndGetMicStream(inputDevice);
+          if (!didCancel) {
+            setMicStream(newStream);
+          }
+        } catch (e) {
+          alert(e.message);
+        }
+      })();
+    } else {
+      setMicStream((micStream) => {
+        if (micStream) {
+          for (const track of micStream.getTracks()) {
+            track.stop();
+          }
+        }
+        return null;
+      });
+    }
+    return () => {
+      didCancel = true;
+    };
+  }, [inputDevice, roomState]);
+
+  return { roomId, roomState, joinRoom, leaveRoom, micStream };
 }
 
 function SettingsDropdown({
@@ -239,12 +253,10 @@ export function Home() {
 
   const { socket, connected } = useSocket(SOCKET_ENDPOINT, user);
 
-  const micStreamRef = useRef(null);
-  const { roomId, roomState, joinRoom, leaveRoom } = useSocketRoom(
+  const { roomId, roomState, joinRoom, leaveRoom, micStream } = useSocketRoom(
     socket,
     connected,
-    inputDevice,
-    micStreamRef
+    inputDevice
   );
 
   const auth = useAuth();
@@ -253,7 +265,7 @@ export function Home() {
     await auth.signOut();
   }, [auth, leaveRoom]);
 
-  const [connectionStateByUid, setConnectionStateByUid] = useState({});
+  const [connectionStates, setConnectionStates] = useState({});
 
   const [mute, setMute] = useState(false);
   const toggleMute = useCallback(() => {
@@ -271,7 +283,7 @@ export function Home() {
         <ServerDisconnnected />
       ) : (
         <div className="w-full h-full flex flex-col">
-          <div className="font-medium flex items-center">
+          <div className="font-semibold flex items-center">
             <div>{displayName}</div>
             <button
               className="relative focus:outline-none rounded text-gray-700 hover:bg-gray-200 ml-1 p-1"
@@ -292,25 +304,23 @@ export function Home() {
               setOutputDevice={setOutputDevice}
             />
           </div>
-          <Suspense fallback={<div>Connecting...</div>}>
-            <SocketRtc
-              socket={socket}
-              outputDevice={outputDevice}
-              mute={mute}
-              onConnectionStateChange={setConnectionStateByUid}
-              micStreamRef={micStreamRef}
-            />
-          </Suspense>
           <div className="overflow-y-auto flex-1">
             <RoomSelector
               currentRoomId={roomId}
               currentRoomState={roomState}
               joinRoom={joinRoom}
               leaveRoom={leaveRoom}
-              connectionStateByUid={connectionStateByUid}
+              connectionStates={connectionStates}
             />
           </div>
-          {roomId && isDevelopment ? <Music /> : null}
+          <RoomRtc
+            socket={socket}
+            outputDevice={outputDevice}
+            mute={mute}
+            onConnectionStatesChange={setConnectionStates}
+            micStream={micStream}
+          />
+          {roomId && isDevelopment ? <Music currentRoomId={roomId} /> : null}
         </div>
       )}
     </div>

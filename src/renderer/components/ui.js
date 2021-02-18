@@ -119,11 +119,30 @@ export function SettingsIcon(props) {
   );
 }
 
+export function MusicIcon(props) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      {...props}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+      />
+    </svg>
+  );
+}
+
 export function Select({ children, className, ...rest }) {
   return (
     <select
       className={
-        'inline-flex justify-center w-full rounded-md border border-gray-300 px-2 py-1 bg-white text-sm leading-5 font-medium text-gray-800 hover:text-gray-700 focus:outline-none focus:ring-teal-300 focus:ring-2 active:bg-gray-100 active:text-gray-800 cursor-pointer transition ease-in-out duration-150 ' +
+        'block w-full rounded-md border-gray-300 pl-2 pr-7 py-1 bg-white text-sm leading-5 text-gray-800 hover:text-gray-700 focus:outline-none focus:ring-teal-300 focus:ring-2 active:bg-gray-100 active:text-gray-800 cursor-pointer transition ease-in-out duration-150 ' +
         className
       }
       {...rest}
@@ -180,12 +199,23 @@ export function Audio({ srcObject, sinkId, ...rest }) {
 export function Button({ children, className, ...rest }) {
   return (
     <button
-      className={`bg-teal-600 hover:bg-teal-700 text-white font-medium py-1 px-2 rounded disabled:opacity-75 focus:outline-none ${
+      className={`bg-teal-600 hover:bg-teal-700 text-white font-semibold py-1 px-2 rounded disabled:opacity-75 focus:outline-none ${
         className || ''
       }`}
       {...rest}
     >
       {children}
     </button>
+  );
+}
+
+export function SectionLabel({ children, className, ...rest }) {
+  return (
+    <div
+      className={`uppercase tracking-widest text-xs ${className || ''}`}
+      {...rest}
+    >
+      <span>{children}</span>
+    </div>
   );
 }

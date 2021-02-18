@@ -13,8 +13,9 @@ import {
   MatMicrophoneIcon,
   MatMicrophoneOffIcon,
   MicrophoneOffIcon,
-} from './reusableUi';
-import { RoomState } from './socketRtc';
+  SectionLabel,
+} from './ui';
+import { RoomState } from './roomRtc';
 import usePromise from 'react-promise-suspense';
 import birds from '../util/birds';
 
@@ -38,7 +39,7 @@ function useDatabaseObjectDataPartialOnce(ref, childKeys) {
   return usePromise(getPartial, [ref, childKeys]);
 }
 
-function RoomUsers({ currentRoomId, roomId, connectionStateByUid }) {
+function RoomUsers({ currentRoomId, roomId, connectionStates }) {
   const database = useDatabase();
   const roomUsers = useDatabaseObjectData(
     database.ref(`rooms/${roomId}/users`)
@@ -53,15 +54,14 @@ function RoomUsers({ currentRoomId, roomId, connectionStateByUid }) {
   return (
     <>
       {userIds.map((uid) => {
-        const nameClass =
+        const connecting =
           roomId === currentRoomId &&
           currentUid !== uid &&
-          connectionStateByUid[uid] !== 'connected'
-            ? 'text-gray-500'
-            : '';
+          connectionStates[uid] !== 'connected';
+        const nameClass = connecting ? 'text-gray-500' : '';
         return (
           <div key={uid} className="flex items-center">
-            <div className={'px-1 ' + nameClass}>
+            <div className={'text-sm px-1 ' + nameClass}>
               {userDocs[uid].displayName}
             </div>
             <div className="text-gray-500">
@@ -79,7 +79,7 @@ function RoomUsers({ currentRoomId, roomId, connectionStateByUid }) {
 function Room({
   id,
   currentRoomId,
-  connectionStateByUid,
+  connectionStates,
   currentRoomState,
   leaveRoom: leave,
   joinRoom,
@@ -89,10 +89,8 @@ function Room({
     currentRoomState === RoomState.LEAVING;
 
   const join = useCallback(() => {
-    if (currentRoomState === RoomState.NONE && id !== currentRoomId) {
-      joinRoom(id);
-    }
-  }, [currentRoomId, currentRoomState, id, joinRoom]);
+    joinRoom(id);
+  }, [id, joinRoom]);
 
   let roomName = useDatabaseObjectData(useDatabase().ref(`rooms/${id}/name`));
   if (typeof roomName !== 'string') {
@@ -110,12 +108,12 @@ function Room({
       onClick={join}
     >
       <div className="flex-1 self-center">
-        <span className="font-medium">{roomName}</span>
+        <span className="font-semibold">{roomName}</span>
         <Suspense fallback={<div></div>}>
           <RoomUsers
             currentRoomId={currentRoomId}
             roomId={id}
-            connectionStateByUid={connectionStateByUid}
+            connectionStates={connectionStates}
           />
         </Suspense>
       </div>
@@ -133,7 +131,7 @@ export function RoomSelector({
   currentRoomState,
   joinRoom,
   leaveRoom,
-  connectionStateByUid,
+  connectionStates,
 }) {
   const database = useDatabase();
 
@@ -149,42 +147,43 @@ export function RoomSelector({
     }
   }
 
+  const transitioning =
+    currentRoomState === RoomState.JOINING ||
+    currentRoomState === RoomState.LEAVING;
+
   const createAndJoinRoom = useCallback(() => {
     joinRoom(null);
   }, [joinRoom]);
 
-  const transitioning =
-    currentRoomState === RoomState.JOINING ||
-    currentRoomState === RoomState.LEAVING;
   return (
     <div className="mt-2">
-      <div className="mb-2 small-caps">Lounges</div>
+      <SectionLabel className="mb-2">Lounges</SectionLabel>
       {permanentIds.map((id) => (
         <Room
           key={id}
           id={id}
           currentRoomId={currentRoomId}
-          connectionStateByUid={connectionStateByUid}
+          connectionStates={connectionStates}
           currentRoomState={currentRoomState}
           leaveRoom={leaveRoom}
           joinRoom={joinRoom}
         />
       ))}
-      <div className="mt-4 mb-2 flex">
-        <div className="flex-1 small-caps">Rooms</div>
+      <div className="mt-4 mb-2 flex items-center">
+        <SectionLabel className="flex-1">Rooms</SectionLabel>
         <Button onClick={createAndJoinRoom} disabled={transitioning}>
           <AddIcon width={16} height={16} />
         </Button>
       </div>
       {tempIds.length === 0 ? (
-        <div className="text-gray-600 ml-2">No rooms</div>
+        <div className="text-gray-400">No rooms</div>
       ) : (
         tempIds.map((id) => (
           <Room
             key={id}
             id={id}
             currentRoomId={currentRoomId}
-            connectionStateByUid={connectionStateByUid}
+            connectionStates={connectionStates}
             currentRoomState={currentRoomState}
             leaveRoom={leaveRoom}
             joinRoom={joinRoom}

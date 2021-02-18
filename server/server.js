@@ -1,5 +1,4 @@
 const express = require('express');
-const path = require('path');
 const http = require('http');
 const https = require('https');
 const admin = require('firebase-admin');
@@ -46,30 +45,40 @@ server.listen(PORT, null, function () {
   console.log('Listening on port ' + PORT);
 });
 
-const roomToSockets = {}; // sets
 const uidToSocket = {};
 
 function getRooms(socket) {
   return Object.keys(socket.rooms).filter((room) => room !== socket.id);
 }
 
+function getPeersInRoom(socket, room) {
+  return Object.keys(io.sockets.adapter.rooms[room].sockets)
+    .filter((id) => id !== socket.id)
+    .map((peerId) => io.sockets.sockets[peerId]);
+}
+
 function leaveRoom(socket, room) {
   console.log(`[${socket.id}] leave room ${room}`);
-  socket.leave(room);
   const database = admin.database();
 
   const uid = socket.user.uid;
+
+  // tell peers to remove this
   socket.to(room).emit('removePeer', {
     peerSocketId: socket.id,
     peerUid: uid,
   });
-  for (const peerSocket of roomToSockets[room]) {
+
+  // tell this to remove each peer
+  const peers = getPeersInRoom(socket, room);
+  for (const peerSocket of peers) {
     socket.emit('removePeer', {
       peerSocketId: peerSocket.id,
       peerUid: peerSocket.user.uid,
     });
   }
-  roomToSockets[room].delete(socket);
+
+  socket.leave(room);
 
   // Note: Don't use socket anymore, might not exist if disconnecting
   return (async () => {
@@ -85,12 +94,18 @@ function leaveRoom(socket, room) {
   })();
 }
 
+async function leaveAllRoomsAsync(socket) {
+  const rooms = getRooms(socket);
+  console.log(`[${socket.id}] leaving all rooms`);
+  return Promise.all(rooms.map((room) => leaveRoom(socket, room)));
+}
+
 function leaveAllRooms(socket) {
   const rooms = getRooms(socket);
-  if (rooms.length > 1) {
-    console.warn(`[${socket.id}] socket in more than 1 room`);
+  console.log(`[${socket.id}] leaving all rooms`);
+  for (const room of rooms) {
+    leaveRoom(socket, room);
   }
-  return Promise.all(rooms.map((room) => leaveRoom(socket, room)));
 }
 
 io.use(async (socket, next) => {
@@ -115,44 +130,48 @@ io.use(async (socket, next) => {
 
 io.on('connection', (socket) => {
   // const socketHostName = socket.handshake.headers.host.split(':')[0];
-  console.log(`[${socket.id}] connection accepted`);
+  console.log(`[${socket.id}] event:connection`);
 
   socket.on('disconnect', () => {
-    console.log(`[${socket.id}] disconnected`);
+    console.log(`[${socket.id}] event:disconnect`);
   });
 
   socket.on('disconnecting', () => {
-    console.log(`[${socket.id}] disconnecting`);
-    if (uidToSocket[socket.user.uid].id === socket.id) {
+    console.log(`[${socket.id}] event:disconnecting`);
+    if (
+      socket.user.uid in uidToSocket &&
+      uidToSocket[socket.user.uid].id === socket.id
+    ) {
       delete uidToSocket[socket.user.uid];
     }
     leaveAllRooms(socket);
   });
 
   socket.on('join', async (msg) => {
-    console.log(`[${socket.id}] join `, msg);
+    console.log(`[${socket.id}] event:join `, msg);
     const { room } = msg;
 
-    await leaveAllRooms(socket);
+    await leaveAllRoomsAsync(socket);
+
+    if (room in socket.rooms) {
+      // Already joined
+      return;
+    }
 
     socket.join(room);
     socket.emit(`joined`, { room });
 
-    if (!roomToSockets[room]) roomToSockets[room] = new Set();
-
-    // Already joined
-    if (roomToSockets[room].has(socket)) {
-      return;
-    }
-
+    // tell peers to add this
     console.log(`[${room}] add peer`, socket.id);
     socket.to(room).emit('addPeer', {
       peerSocketId: socket.id,
       peerUid: socket.user.uid,
       shouldCreateOffer: false,
     });
-    const peerSockets = roomToSockets[room];
-    for (const peerSocket of peerSockets) {
+
+    // tell this to add each peer
+    const peers = getPeersInRoom(socket, room);
+    for (const peerSocket of peers) {
       console.log(`[${socket.id}] add peer`, peerSocket.id);
       socket.emit('addPeer', {
         peerSocketId: peerSocket.id,
@@ -160,12 +179,10 @@ io.on('connection', (socket) => {
         shouldCreateOffer: true,
       });
     }
-
-    roomToSockets[room].add(socket);
   });
 
   socket.on('leave', async () => {
-    console.log(`[${socket.id}] leave all rooms`);
+    console.log(`[${socket.id}] event:leave`);
     await leaveAllRooms(socket);
     socket.emit('left');
   });
