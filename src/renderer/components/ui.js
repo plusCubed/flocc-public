@@ -138,6 +138,27 @@ export function MusicIcon(props) {
   );
 }
 
+export function SkipNextIcon(props) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      {...props}
+    >
+      <g>
+        <rect fill="none" height="24" width="24" />
+      </g>
+      <g>
+        <g>
+          <path d="M16,7v10c0,0.55,0.45,1,1,1h0c0.55,0,1-0.45,1-1V7c0-0.55-0.45-1-1-1h0C16.45,6,16,6.45,16,7z" />
+          <path d="M6.55,16.96l6.2-4.13c0.59-0.4,0.59-1.27,0-1.66l-6.2-4.13C5.89,6.59,5,7.07,5,7.87v8.26C5,16.93,5.89,17.41,6.55,16.96z" />
+        </g>
+      </g>
+    </svg>
+  );
+}
+
 export function Select({ children, className, ...rest }) {
   return (
     <select
