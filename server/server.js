@@ -28,7 +28,7 @@ async function cleanUpRooms() {
   const rooms = (await admin.database().ref('rooms').once('value')).val();
   for (const [room, roomDoc] of Object.entries(rooms)) {
     // Delete temporary rooms
-    if (!roomDoc.users && !roomDoc.permanent) {
+    if (!roomDoc.permanent) {
       await admin.database().ref(`rooms/${room}`).remove();
     }
     // Clear users from permanent rooms
@@ -52,9 +52,14 @@ function getRooms(socket) {
 }
 
 function getPeersInRoom(socket, room) {
-  return Object.keys(io.sockets.adapter.rooms[room].sockets)
-    .filter((id) => id !== socket.id)
-    .map((peerId) => io.sockets.sockets[peerId]);
+  const roomObj = io.sockets.adapter.rooms[room];
+  if (roomObj) {
+    return Object.keys(roomObj.sockets)
+      .filter((id) => id !== socket.id)
+      .map((peerId) => io.sockets.sockets[peerId]);
+  } else {
+    return [];
+  }
 }
 
 function leaveRoom(socket, room) {
