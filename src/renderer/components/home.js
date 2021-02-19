@@ -24,9 +24,10 @@ const isDevelopment =
   (isElectron() && require('electron').ipcRenderer.sendSync('is-dev')) ||
   (!isElectron() && window.location.hostname === 'localhost');
 
-const SOCKET_ENDPOINT = isDevelopment
+const SOCKET_ENDPOINT =
+  /*isDevelopment
   ? 'http://localhost:3010'
-  : 'https://server.flocc.app:8443';
+  : */ 'https://server.flocc.app:8443';
 
 function ServerDisconnnected() {
   return (
