@@ -321,7 +321,7 @@ export function Home() {
             onConnectionStatesChange={setConnectionStates}
             micStream={micStream}
           />
-          {roomId && isDevelopment ? <Music currentRoomId={roomId} /> : null}
+          {roomId ? <Music currentRoomId={roomId} /> : null}
         </div>
       )}
     </div>
