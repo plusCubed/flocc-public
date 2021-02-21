@@ -1,7 +1,7 @@
 {
   "name": "flocc",
   "productName": "Flocc",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "description": "Flocc",
   "main": ".webpack/main",
   "scripts": {
@@ -50,7 +50,7 @@
     "babel-loader": "^8.2.2",
     "cross-env": "^7.0.3",
     "css-loader": "^4.2.1",
-    "electron": "^11.2.3",
+    "electron": "^11.3.0",
     "eslint": "^7.20.0",
     "eslint-config-prettier": "^6.15.0",
     "eslint-config-react-app": "^6.0.0",
@@ -96,6 +96,7 @@
     "socket.io-client": "^2.4.0",
     "tailwindcss": "^2.0.3",
     "webrtc-adapter": "^7.7.0",
+    "ytdl-core": "^4.5.0",
     "ytsr": "^3.3.1"
   },
   "prettier": {
