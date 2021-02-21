@@ -4,6 +4,7 @@ const {
   autoUpdater,
   dialog,
   ipcMain,
+  session,
 } = require('electron');
 const path = require('path');
 const Positioner = require('electron-positioner');
@@ -73,8 +74,22 @@ const createWindow = () => {
   const positioner = new Positioner(mainWindow);
   positioner.move('bottomRight');
 
+  let webpackEntry = MAIN_WINDOW_WEBPACK_ENTRY;
+
+  if (!isDevelopment) {
+    // workaround
+    session.defaultSession.protocol.interceptFileProtocol(
+      'http',
+      (request, callback) => {
+        const filePath = request.url.replace('http://localhost/', '');
+        callback(path.normalize(filePath));
+      }
+    );
+    webpackEntry = webpackEntry.replaceAll('file://', 'http://localhost/');
+  }
+
   // and load the index.html of the app.
-  mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
+  mainWindow.loadURL(webpackEntry);
 
   // Open the DevTools.
   if (isDevelopment) {
