@@ -82,6 +82,7 @@ export function Music({ currentRoomId }) {
               .remove();
           }
         } catch (e) {
+          console.error(e);
           // TODO: display error
           await database
             .ref(`rooms/${currentRoomId}/music`)

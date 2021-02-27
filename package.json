@@ -96,7 +96,6 @@
     "socket.io-client": "^2.4.0",
     "tailwindcss": "^2.0.3",
     "webrtc-adapter": "^7.7.0",
-    "ytdl-core": "^4.5.0",
     "ytsr": "^3.3.1"
   },
   "prettier": {

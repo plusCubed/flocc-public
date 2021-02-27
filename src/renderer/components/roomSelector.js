@@ -81,9 +81,10 @@ function Room({
   currentRoomId,
   connectionStates,
   currentRoomState,
-  leaveRoom: leave,
+  leaveRoom,
   joinRoom,
 }) {
+  const uid = useUser().uid;
   const transitioning =
     currentRoomState === RoomState.JOINING ||
     currentRoomState === RoomState.LEAVING;
@@ -96,6 +97,11 @@ function Room({
   if (typeof roomName !== 'string') {
     roomName = '';
   }
+
+  const showLeaveButton =
+    currentRoomState === RoomState.JOINED &&
+    currentRoomId === id &&
+    currentRoomId !== `room-${uid}`;
 
   return (
     <div
@@ -117,8 +123,12 @@ function Room({
           />
         </Suspense>
       </div>
-      {currentRoomState === RoomState.JOINED && currentRoomId === id ? (
-        <Button className="self-start" onClick={leave} disabled={transitioning}>
+      {showLeaveButton ? (
+        <Button
+          className="self-start"
+          onClick={leaveRoom}
+          disabled={transitioning}
+        >
           <ExitIcon width={16} height={16} />
         </Button>
       ) : null}

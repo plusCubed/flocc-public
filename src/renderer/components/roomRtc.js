@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Audio } from './ui';
 import { useSocketListener } from '../util/socketHooks';
 import { Peer } from '../util/peer';
+import { getOSMicPermissionGranted } from '../util/micPermission';
 
 export const RoomState = {
   NONE: 'NONE',
@@ -11,10 +12,31 @@ export const RoomState = {
   LEAVING: 'LEAVING',
 };
 
+function getAudioInputStream(device) {
+  return navigator.mediaDevices.getUserMedia({
+    audio: {
+      deviceId: device,
+    },
+  });
+}
+
+async function getMicStream(inputDevice) {
+  const granted = await getOSMicPermissionGranted();
+  if (!granted) {
+    throw new Error('Microphone permission is required to talk to friends');
+  }
+  const micStream = await getAudioInputStream(inputDevice);
+  if (!micStream) {
+    throw new Error('Microphone permission is required to talk to friends');
+  }
+  console.info('Mic stream obtained');
+  return micStream;
+}
+
 export function RoomRtc({
   socket,
   mute,
-  micStream,
+  inputDevice,
   outputDevice,
   onConnectionStatesChange,
 }) {
@@ -26,32 +48,56 @@ export function RoomRtc({
 
   const peerUids = Object.keys(peerConnectionStates);
 
-  // update sender tracks
+  const micStream = useRef(null);
+
+  // update sender tracks / mic stream
   useEffect(() => {
-    for (const peer of Object.values(peers.current)) {
-      const micTrack = micStream?.getTracks()?.[0];
-      if (!micTrack) {
+    let canceled = false;
+    const updateSenderTracks = async () => {
+      const peersList = Object.values(peers.current);
+
+      if (peersList.length === 0 && micStream.current) {
+        for (const track of micStream.current.getTracks()) {
+          track.stop();
+        }
+        micStream.current = null;
         return;
       }
-      const senders = peer.pc.getSenders();
-      if (senders.length === 0 || (senders[0] && !senders[0].track)) {
-        console.info(`[${peer.peerUid}] add mic track`);
-        peer.pc.addTrack(micTrack, micStream);
-      } else if (senders[0].track.id !== micTrack.id) {
-        console.info(`[${peer.peerUid}] replace mic track`);
-        senders[0].replaceTrack(micTrack).catch((err) => {
-          console.error(err);
-        });
-      }
-    }
-  }, [peerUids, micStream]);
 
-  // set mute
-  useEffect(() => {
-    if (!micStream) return;
-    const micTrack = micStream.getTracks()[0];
-    micTrack.enabled = !mute;
-  }, [micStream, mute]);
+      if (peersList.length > 0 && !micStream.current) {
+        try {
+          micStream.current = await getMicStream(inputDevice);
+        } catch (err) {
+          alert(err);
+          micStream.current = null;
+        }
+      }
+      if (canceled) {
+        return;
+      }
+
+      const micTrack = micStream.current?.getTracks()?.[0];
+      if (!micTrack) return;
+      micTrack.enabled = !mute; // set mute
+      for (const peer of peersList) {
+        const senders = peer.pc.getSenders();
+        if (senders.length === 0 || (senders[0] && !senders[0].track)) {
+          console.info(`[${peer.peerUid}] add mic track`);
+          peer.pc.addTrack(micTrack, micStream.current);
+        } else if (senders[0].track.id !== micTrack.id) {
+          console.info(`[${peer.peerUid}] replace mic track`);
+          senders[0].replaceTrack(micTrack).catch((err) => {
+            console.error(err);
+          });
+        }
+      }
+    };
+    updateSenderTracks();
+
+    return () => {
+      canceled = true;
+    };
+  }, [peerUids, mute, inputDevice]);
 
   // update socket
   useEffect(() => {
