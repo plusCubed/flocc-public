@@ -3,7 +3,7 @@ import { useAuth, useDatabase, useUser } from 'reactfire';
 import isElectron from 'is-electron';
 import { Transition } from '@headlessui/react';
 
-import { RoomState, RoomRtc } from './roomRtc';
+import { RoomRtc, RoomState } from './roomRtc';
 import { useSocket, useSocketListener } from '../util/socketHooks';
 import { AudioSelector } from './audioSelect';
 import {
@@ -16,8 +16,6 @@ import {
 } from './ui';
 import { RoomSelector } from './roomSelector';
 import { Music } from './music';
-import { getOSMicPermissionGranted } from '../util/micPermission';
-import birds from '../util/birds';
 import { usePrevious } from '../util/usePrev';
 
 const isDevelopment =
@@ -49,16 +47,14 @@ function useSocketRoom(socket, connected) {
     roomState === RoomState.JOINING || roomState === RoomState.LEAVING;
 
   const joinRoom = useCallback(
-    async (id) => {
+    async (id, locked) => {
       if (!socket) return;
       if (transitioning) return;
       if (id === roomId) return; // already in this room
 
       // create room if id is null
       if (!id) {
-        const roomRef = database
-          .ref(`rooms`)
-          .push({ name: birds[Math.floor(Math.random() * birds.length)] });
+        const roomRef = database.ref(`rooms`).push({ locked: !!locked });
         id = roomRef.key;
       }
       console.info('Joining room', id);
@@ -110,18 +106,27 @@ function useSocketRoom(socket, connected) {
     }
   }, [connected, joinRoom, prevConnected, roomId, socket]);
 
+  const prevRoomState = usePrevious(roomState);
   useEffect(() => {
     if (roomState === RoomState.NONE && socket) {
-      joinRoom(`room-${uid}`);
+      joinRoom(null, prevRoomState === RoomState.NONE);
     }
-  }, [joinRoom, roomState, socket, uid]);
+  }, [joinRoom, prevRoomState, roomState, socket, uid]);
 
   useEffect(() => {
-    const focusListener = function (event) {};
+    const onfocus = function (event) {
+      console.log('focus');
+    };
 
-    window.addEventListener('focus', focusListener);
+    const onblur = function (event) {
+      console.log('blur');
+    };
+
+    window.addEventListener('focus', onfocus);
+    window.addEventListener('blur', onblur);
     return () => {
-      window.removeEventListener('focus', focusListener);
+      window.removeEventListener('focus', onfocus);
+      window.removeEventListener('blur', onblur);
     };
   }, []);
 

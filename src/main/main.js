@@ -33,6 +33,7 @@ const createWindow = () => {
     width: 320,
     height: 640,
     webPreferences: {
+      contextIsolation: false,
       nodeIntegration: true,
       enableRemoteModule: true,
     },
@@ -66,7 +67,6 @@ const createWindow = () => {
     e.preventDefault();
     require('electron').shell.openExternal(url);
   };
-  mainWindow.webContents.on('will-navigate', openExternalListener);
   mainWindow.webContents.on('new-window', openExternalListener);
 
   mainWindow.setMenuBarVisibility(false);

@@ -43,10 +43,9 @@ export function RoomRtc({
   // non-UI state
   const peers = useRef({});
   // UI state
+  const [peerUids, setPeerUids] = useState({});
   const [peerStreams, setPeerStreams] = useState({});
   const [peerConnectionStates, setPeerConnectionStates] = useState({});
-
-  const peerUids = Object.keys(peerConnectionStates);
 
   const micStream = useRef(null);
 
@@ -57,6 +56,7 @@ export function RoomRtc({
       const peersList = Object.values(peers.current);
 
       if (peersList.length === 0 && micStream.current) {
+        console.info(`Mic stream stopped`);
         for (const track of micStream.current.getTracks()) {
           track.stop();
         }
@@ -112,10 +112,11 @@ export function RoomRtc({
 
   const addPeer = useCallback(
     ({ peerSocketId, peerUid, shouldCreateOffer: polite }) => {
-      console.info(`socket: [${peerUid}] addPeer`);
+      console.info(`socket: [${peerUid}] addPeer, polite:`, polite);
 
       if (peerUid in peers.current) {
         // Already added
+        console.warn(`[${peerUid}] already added`);
         return;
       }
 
@@ -135,6 +136,7 @@ export function RoomRtc({
       });
 
       peers.current[peerUid] = peer;
+      setPeerUids(Object.keys(peers.current));
     },
     [socket]
   );
@@ -155,6 +157,7 @@ export function RoomRtc({
       const { [peerUid]: _, ...filtered } = connectionStates;
       return filtered;
     });
+    setPeerUids(Object.keys(peers.current));
   }, []);
   useSocketListener(socket, 'removePeer', removePeer);
 

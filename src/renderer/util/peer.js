@@ -31,6 +31,7 @@ export class Peer extends Mitt {
     });
     this.socket = socket;
     this.peerUid = peerUid;
+    this.polite = polite;
 
     this.makingOffer = false;
     this.ignoreOffer = false;
@@ -81,6 +82,7 @@ export class Peer extends Mitt {
       try {
         this.makingOffer = true;
         await this.pc.setLocalDescription();
+        console.info(`[${this.peerUid}] send session description offer`);
         this.socket.emit('relaySessionDescription', {
           peerUid: this.peerUid,
           sessionDescription: this.pc.localDescription.toJSON(),
@@ -109,6 +111,7 @@ export class Peer extends Mitt {
 
     this.ignoreOffer = !this.polite && offerCollision;
     if (this.ignoreOffer) {
+      console.info(`[${this.peerUid}] offer ignored`);
       return;
     }
     this.isSettingRemoteAnswerPending = description.type === 'answer';
@@ -116,6 +119,7 @@ export class Peer extends Mitt {
     this.pc.isSettingRemoteAnswerPending = false;
     if (description.type === 'offer') {
       await this.pc.setLocalDescription();
+      console.info(`[${this.peerUid}] send session description answer`);
       this.socket.emit('relaySessionDescription', {
         peerUid: this.peerUid,
         sessionDescription: this.pc.localDescription.toJSON(),

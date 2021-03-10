@@ -1,26 +1,39 @@
 const { IgnorePlugin } = require('webpack');
-const ReactRefreshPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
+const { ESBuildPlugin } = require('esbuild-loader');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
 const rules = require('./webpack.rules');
 
-rules.push({
-  test: /\.css$/,
-  use: [
-    isDevelopment && { loader: 'style-loader' },
-    !isDevelopment && { loader: MiniCssExtractPlugin.loader },
-    { loader: 'css-loader' },
-    {
-      loader: 'postcss-loader',
+rules.push(
+  {
+    test: /\.(js|jsx)$/,
+    exclude: /(node_modules|.webpack)/,
+    use: {
+      loader: 'esbuild-loader',
       options: {
-        postcssOptions: {
-          plugins: [require('tailwindcss'), require('autoprefixer')],
-        },
+        loader: 'jsx',
+        target: 'es2020',
       },
     },
-  ].filter(Boolean),
-});
+  },
+  {
+    test: /\.css$/,
+    use: [
+      isDevelopment && { loader: 'style-loader' },
+      !isDevelopment && { loader: MiniCssExtractPlugin.loader },
+      { loader: 'css-loader' },
+      {
+        loader: 'postcss-loader',
+        options: {
+          postcssOptions: {
+            plugins: [require('tailwindcss'), require('autoprefixer')],
+          },
+        },
+      },
+    ].filter(Boolean),
+  }
+);
 
 module.exports = {
   // Put your normal webpack config below here
@@ -28,12 +41,13 @@ module.exports = {
     rules,
   },
   plugins: [
-    isDevelopment &&
+    /*isDevelopment &&
       new ReactRefreshPlugin({
         overlay: {
           sockIntegration: 'whm',
         },
-      }),
+      }),*/
+    new ESBuildPlugin(),
     !isDevelopment &&
       new MiniCssExtractPlugin({
         filename: 'main_window/[name].[contenthash:8].css',

@@ -1,23 +1,15 @@
-import React, { Suspense, useCallback, useEffect, useState } from 'react';
+import React, { Suspense, useCallback } from 'react';
+import { useDatabase, useDatabaseObjectData, useUser } from 'reactfire';
 import {
-  useAuth,
-  useDatabase,
-  useDatabaseObjectData,
-  useUser,
-} from 'reactfire';
-import {
-  AddIcon,
   Button,
-  EnterIcon,
   ExitIcon,
-  MatMicrophoneIcon,
+  LockClosedIcon,
+  LockOpenIcon,
   MatMicrophoneOffIcon,
-  MicrophoneOffIcon,
   SectionLabel,
 } from './ui';
 import { RoomState } from './roomRtc';
 import usePromise from 'react-promise-suspense';
-import birds from '../util/birds';
 
 /**
  * @param {firebase.database.Reference} ref
@@ -93,15 +85,30 @@ function Room({
     joinRoom(id);
   }, [id, joinRoom]);
 
-  let roomName = useDatabaseObjectData(useDatabase().ref(`rooms/${id}/name`));
+  const database = useDatabase();
+  let roomName = useDatabaseObjectData(database.ref(`rooms/${id}/name`));
   if (typeof roomName !== 'string') {
     roomName = '';
   }
 
+  const isInCurrentRoom =
+    currentRoomState === RoomState.JOINED && currentRoomId === id;
+
+  const roomUsers = useDatabaseObjectData(
+    database.ref(`rooms/${currentRoomId}/users`)
+  );
+
+  const permanent =
+    useDatabaseObjectData(database.ref(`rooms/${id}/permanent`)) === true;
+
   const showLeaveButton =
-    currentRoomState === RoomState.JOINED &&
-    currentRoomId === id &&
-    currentRoomId !== `room-${uid}`;
+    isInCurrentRoom && (permanent || Object.keys(roomUsers).length >= 2);
+
+  const locked =
+    useDatabaseObjectData(database.ref(`rooms/${id}/locked`)) === true;
+  const toggleLock = useCallback(() => {
+    database.ref(`rooms/${id}/locked`).set(!locked);
+  }, [database, id, locked]);
 
   return (
     <div
@@ -123,9 +130,26 @@ function Room({
           />
         </Suspense>
       </div>
+
+      {(locked || isInCurrentRoom) && !permanent ? (
+        <button
+          className="self-start focus:outline-none rounded text-gray-700 hover:bg-gray-200 ml-1 px-2 py-1"
+          onClick={toggleLock}
+          disabled={!isInCurrentRoom}
+        >
+          {locked ? (
+            <span className="text-red-500">
+              <LockClosedIcon width={16} height={16} />
+            </span>
+          ) : (
+            <LockOpenIcon width={16} height={16} />
+          )}
+        </button>
+      ) : null}
+
       {showLeaveButton ? (
         <Button
-          className="self-start"
+          className="self-start ml-1"
           onClick={leaveRoom}
           disabled={transitioning}
         >
@@ -146,14 +170,19 @@ export function RoomSelector({
   const database = useDatabase();
 
   const allRooms = useDatabaseObjectData(database.ref('rooms'));
-  const roomData = Object.entries(allRooms);
+  const currentRoomLocked = allRooms[currentRoomId]?.locked;
   let permanentIds = [];
   let tempIds = [];
-  for (const [id, data] of roomData) {
-    if (data.permanent) {
+
+  for (const [id, roomData] of Object.entries(allRooms)) {
+    if (roomData.permanent) {
       permanentIds.push(id);
     } else {
-      tempIds.push(id);
+      if (id === currentRoomId) {
+        tempIds.splice(0, 0, id);
+      } else if (!roomData.locked && !currentRoomLocked) {
+        tempIds.push(id);
+      }
     }
   }
 
@@ -181,25 +210,27 @@ export function RoomSelector({
       ))}
       <div className="mt-4 mb-2 flex items-center">
         <SectionLabel className="flex-1">Rooms</SectionLabel>
-        <Button onClick={createAndJoinRoom} disabled={transitioning}>
+        {/*<Button onClick={createAndJoinRoom} disabled={transitioning}>
           <AddIcon width={16} height={16} />
-        </Button>
+        </Button>*/}
       </div>
-      {tempIds.length === 0 ? (
-        <div className="text-gray-400">No rooms</div>
-      ) : (
-        tempIds.map((id) => (
-          <Room
-            key={id}
-            id={id}
-            currentRoomId={currentRoomId}
-            connectionStates={connectionStates}
-            currentRoomState={currentRoomState}
-            leaveRoom={leaveRoom}
-            joinRoom={joinRoom}
-          />
-        ))
-      )}
+      {tempIds.map((id) => (
+        <Room
+          key={id}
+          id={id}
+          currentRoomId={currentRoomId}
+          connectionStates={connectionStates}
+          currentRoomState={currentRoomState}
+          leaveRoom={leaveRoom}
+          joinRoom={joinRoom}
+        />
+      ))}
+      {currentRoomLocked ? (
+        <div className="text-gray-400">
+          <div>Unlock to join other rooms,</div>
+          <div>and let friends join your room!</div>
+        </div>
+      ) : null}
     </div>
   );
 }

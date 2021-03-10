@@ -1,27 +1,19 @@
 import React, {
+  useCallback,
   useEffect,
-  useState,
   useMemo,
   useRef,
-  useCallback,
+  useState,
 } from 'react';
 import ReactPlayer from 'react-player/youtube';
 import isElectron from 'is-electron';
 import {
   useDatabase,
   useDatabaseListData,
-  useDatabaseObject,
   useDatabaseObjectData,
 } from 'reactfire';
 import { usePrevious } from '../util/usePrev';
-import {
-  Button,
-  MusicIcon,
-  SectionLabel,
-  SettingsIcon,
-  SkipNextIcon,
-  SpeakerIcon,
-} from './ui';
+import { Button, MusicIcon, SkipNextIcon } from './ui';
 
 export function Music({ currentRoomId }) {
   const config = useMemo(() => {
@@ -37,6 +29,8 @@ export function Music({ currentRoomId }) {
   const playerRef = useRef(null);
 
   const database = useDatabase();
+  const musicDbRef = database.ref(`rooms/${currentRoomId}/music`);
+  const musicSyncDbRef = database.ref(`musicSync/${currentRoomId}`);
   const handleSearchInput = useCallback(
     async (e) => {
       const query = e.target.value;
@@ -45,10 +39,12 @@ export function Music({ currentRoomId }) {
         e.target.value = '';
 
         const queueId = Math.floor(Date.now() / 1000);
-        await database
-          .ref(`rooms/${currentRoomId}/music`)
-          .child(`${queueId}`)
-          .set({ query });
+        await musicDbRef.child(`${queueId}`).set({ query });
+
+        const reset = async () => {
+          await musicDbRef.child(`${queueId}`).remove();
+          await musicSyncDbRef.child(`${queueId}`).remove();
+        };
 
         const ytsr = require('ytsr');
         try {
@@ -56,47 +52,36 @@ export function Music({ currentRoomId }) {
           const filter1 = filters1.get('Type').get('Video');
           const options = { limit: 1 };
           const searchResults = await ytsr(filter1.url, options);
+          //console.log('test');
           if (searchResults.items && searchResults.items[0]) {
             const result = searchResults.items[0];
-            await database
-              .ref(`rooms/${currentRoomId}/music`)
-              .child(`${queueId}`)
-              .set({
-                title: result.title,
-                url: result.url,
-                duration: result.duration,
-                isLive: result.isLive,
-              });
-            await database
-              .ref(`rooms/${currentRoomId}/musicStatus`)
-              .child(`${queueId}`)
-              .set({
-                playedSeconds: 0,
-                playing: true,
-              });
+            await musicDbRef.child(`${queueId}`).set({
+              title: result.title,
+              url: result.url,
+              duration: result.duration,
+              isLive: result.isLive,
+            });
+            await musicSyncDbRef.child(`${queueId}`).set({
+              playedSeconds: 0,
+              playing: true,
+            });
           } else {
             // TODO: display no search results
-            await database
-              .ref(`rooms/${currentRoomId}/music`)
-              .child(`${queueId}`)
-              .remove();
+            reset();
           }
         } catch (e) {
           console.error(e);
           // TODO: display error
-          await database
-            .ref(`rooms/${currentRoomId}/music`)
-            .child(`${queueId}`)
-            .remove();
+          reset();
         }
       }
     },
-    [currentRoomId, database]
+    [musicDbRef, musicSyncDbRef]
   );
 
   const [volume, setVolume] = useState(0);
   useEffect(() => {
-    const initialVolume = localStorage.getItem('musicVolume');
+    const initialVolume = localStorage.getItem('musicVolume') || 50;
     setVolume(parseInt(initialVolume));
   }, []);
   useEffect(() => {
@@ -108,87 +93,79 @@ export function Music({ currentRoomId }) {
 
   const [url, setUrl] = useState('');
 
-  const queue = useDatabaseListData(
-    database.ref(`rooms/${currentRoomId}/music`).orderByKey(),
-    { idField: 'queueId' }
-  );
+  const musicQueue = useDatabaseListData(musicDbRef.orderByKey(), {
+    idField: 'queueId',
+  });
 
   const playing =
     useDatabaseObjectData(
-      database
-        .ref(`rooms/${currentRoomId}/musicStatus`)
-        .child(`${queue?.[0]?.queueId}` || 'invalid')
+      musicSyncDbRef
+        .child(`${musicQueue?.[0]?.queueId}` || 'invalid')
         .child('playing')
     ) === true;
 
-  const prevQueue = usePrevious(queue);
+  const prevQueue = usePrevious(musicQueue);
   useEffect(() => {
     if (
-      prevQueue?.[0]?.queueId !== queue?.[0]?.queueId ||
-      prevQueue?.[0]?.url !== queue?.[0]?.url
+      prevQueue?.[0]?.queueId !== musicQueue?.[0]?.queueId ||
+      prevQueue?.[0]?.url !== musicQueue?.[0]?.url
     ) {
-      if (queue?.[0]?.url) {
-        if (prevQueue?.[0]?.url === queue?.[0]?.url) {
+      if (musicQueue?.[0]?.url) {
+        if (prevQueue?.[0]?.url === musicQueue?.[0]?.url) {
           setUrl(''); // clear player
         }
 
-        setUrl(`${queue[0].url}`);
+        setUrl(`${musicQueue[0].url}`);
       } else {
         setUrl(null);
       }
     }
-  }, [currentRoomId, database, prevQueue, queue]);
+  }, [currentRoomId, database, prevQueue, musicQueue]);
 
   const handleNext = useCallback(() => {
-    if (queue.length > 0) {
-      const currentQueueId = queue[0].queueId;
-      database.ref(`rooms/${currentRoomId}/music/${currentQueueId}`).remove();
-      database
-        .ref(`rooms/${currentRoomId}/musicStatus/${currentQueueId}`)
-        .remove();
+    if (musicQueue.length > 0) {
+      const currentQueueId = musicQueue[0].queueId;
+      musicDbRef.child(currentQueueId.toString()).remove();
+      musicSyncDbRef.child(currentQueueId.toString()).remove();
     }
-  }, [currentRoomId, database, queue]);
+  }, [musicDbRef, musicSyncDbRef, musicQueue]);
 
   const handlePlayerProgress = useCallback(
     ({ played, playedSeconds, loaded, loadedSeconds }) => {
-      database
-        .ref(`rooms/${currentRoomId}/musicStatus`)
-        .child(`${queue[0].queueId}/playedSeconds`)
-        .set(playedSeconds);
+      if (!musicQueue?.[0]?.isLive) {
+        musicSyncDbRef
+          .child(`${musicQueue[0].queueId}/playedSeconds`)
+          .set(playedSeconds);
+      }
     },
-    [currentRoomId, database, queue]
+    [musicSyncDbRef, musicQueue]
   );
 
   const handlePause = useCallback(() => {
     console.log('pause');
-    database
-      .ref(`rooms/${currentRoomId}/musicStatus`)
-      .child(`${queue[0].queueId}/playing`)
-      .set(false);
-  }, [currentRoomId, database, queue]);
+    musicSyncDbRef.child(`${musicQueue[0].queueId}/playing`).set(false);
+  }, [musicSyncDbRef, musicQueue]);
 
   const handlePlay = useCallback(() => {
     console.log('play');
-    database
-      .ref(`rooms/${currentRoomId}/musicStatus`)
-      .child(`${queue[0].queueId}/playing`)
-      .set(true);
-  }, [currentRoomId, database, queue]);
+    musicSyncDbRef.child(`${musicQueue[0].queueId}/playing`).set(true);
+  }, [musicSyncDbRef, musicQueue]);
 
   const handlePlayerReady = useCallback(() => {
     console.log('ready');
-    // Seek to playedSeconds (if it exists)
-    (async () => {
-      const playedSeconds = (
-        await database
-          .ref(`rooms/${currentRoomId}/musicStatus`)
-          .child(`${queue[0].queueId}`)
-          .child('playedSeconds')
-          .once('value')
-      ).val();
-      playerRef.current?.seekTo(playedSeconds, 'seconds');
-    })();
-  }, [currentRoomId, database, queue]);
+    if (!musicQueue?.[0]?.isLive) {
+      // Seek to playedSeconds (if it exists)
+      (async () => {
+        const playedSeconds = (
+          await musicSyncDbRef
+            .child(`${musicQueue[0].queueId}`)
+            .child('playedSeconds')
+            .once('value')
+        ).val();
+        playerRef.current?.seekTo(playedSeconds, 'seconds');
+      })();
+    }
+  }, [musicSyncDbRef, musicQueue]);
 
   return (
     <div className="pt-2 border-t border-solid border-gray-200">
@@ -237,8 +214,8 @@ export function Music({ currentRoomId }) {
         </div>
       </div>
 
-      <ul className="mb-2" hidden={queue.length === 0}>
-        {queue.map((vid) => (
+      <ul className="mb-2" hidden={musicQueue.length === 0}>
+        {musicQueue.map((vid) => (
           <li key={vid.queueId} className="truncate text-gray-700">
             <span className="select-none">• </span>
             {vid.query ? (

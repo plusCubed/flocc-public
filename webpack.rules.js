@@ -1,5 +1,3 @@
-const isDevelopment = process.env.NODE_ENV !== 'production';
-
 module.exports = [
   // Add support for native node modules
   {
@@ -16,7 +14,7 @@ module.exports = [
       },
     },
   },
-  {
+  /*{
     test: /\.(js|jsx)$/,
     exclude: /(node_modules|.webpack)/,
     use: {
@@ -31,7 +29,7 @@ module.exports = [
         ].filter(Boolean),
       },
     },
-  },
+  },*/
   {
     test: /\.(woff|woff2|png|svg|jpg|gif)$/,
     use: ['file-loader'],
