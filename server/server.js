@@ -24,12 +24,17 @@ admin.initializeApp({
   databaseURL: 'https://floccapp.firebaseio.com',
 });
 
+async function deleteFirebaseRoom(room) {
+  await admin.database().ref(`rooms/${room}`).remove();
+  await admin.database().ref(`musicSync/${room}`).remove();
+}
+
 async function cleanUpRooms() {
   const rooms = (await admin.database().ref('rooms').once('value')).val();
   for (const [room, roomDoc] of Object.entries(rooms)) {
     // Delete temporary rooms
     if (!roomDoc.permanent) {
-      await admin.database().ref(`rooms/${room}`).remove();
+      await deleteFirebaseRoom(room);
     }
     // Clear users from permanent rooms
     if (roomDoc.permanent) {
@@ -90,10 +95,10 @@ function leaveRoom(socket, room) {
     try {
       await database.ref(`rooms/${room}/users/${uid}`).remove();
 
-      // Delete impromptu room
+      // Delete temporary room if no users left
       const roomDoc = (await database.ref(`rooms/${room}`).once('value')).val();
       if (!roomDoc.users && !roomDoc.permanent) {
-        await database.ref(`rooms/${room}`).remove();
+        await deleteFirebaseRoom(room);
       }
     } catch (ignored) {}
   })();

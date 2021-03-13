@@ -196,7 +196,7 @@ export function RoomSelector({
 
   return (
     <div className="mt-2">
-      <SectionLabel className="mb-2">Lounges</SectionLabel>
+      {/*<SectionLabel className="mb-2">Lounges</SectionLabel>
       {permanentIds.map((id) => (
         <Room
           key={id}
@@ -207,8 +207,8 @@ export function RoomSelector({
           leaveRoom={leaveRoom}
           joinRoom={joinRoom}
         />
-      ))}
-      <div className="mt-4 mb-2 flex items-center">
+      ))}*/}
+      <div className="mb-2 flex items-center">
         <SectionLabel className="flex-1">Rooms</SectionLabel>
         {/*<Button onClick={createAndJoinRoom} disabled={transitioning}>
           <AddIcon width={16} height={16} />
@@ -227,8 +227,8 @@ export function RoomSelector({
       ))}
       {currentRoomLocked ? (
         <div className="text-gray-400">
-          <div>Unlock to join other rooms,</div>
-          <div>and let friends join your room!</div>
+          <div>Unlock to join friend rooms,</div>
+          <div>and let friends join yours!</div>
         </div>
       ) : null}
     </div>

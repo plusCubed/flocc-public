@@ -8,7 +8,7 @@ const {
 } = require('electron');
 const path = require('path');
 const Positioner = require('electron-positioner');
-const isDevelopment = require('electron-is-dev');
+const IS_DEVELOPMENT = require('electron-is-dev');
 
 const TrayGenerator = require('./tray');
 const googleOAuthConfig = require('./config/googleOAuthConfig').default;
@@ -76,7 +76,7 @@ const createWindow = () => {
 
   let webpackEntry = MAIN_WINDOW_WEBPACK_ENTRY;
 
-  if (!isDevelopment) {
+  if (!IS_DEVELOPMENT) {
     // workaround
     session.defaultSession.protocol.interceptFileProtocol(
       'http',
@@ -92,7 +92,7 @@ const createWindow = () => {
   mainWindow.loadURL(webpackEntry);
 
   // Open the DevTools.
-  if (isDevelopment) {
+  if (IS_DEVELOPMENT) {
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   }
 
@@ -106,7 +106,7 @@ const createWindow = () => {
 app.on('ready', () => {
   createWindow();
 
-  if (!isDevelopment) {
+  if (!IS_DEVELOPMENT) {
     const nutsServer = 'https://nuts.flocc.app';
     const url = `${nutsServer}/update/${process.platform}/${app.getVersion()}`;
     autoUpdater.setFeedURL({ url });
@@ -175,5 +175,5 @@ ipcMain.on('sign-in-with-google', async (event) => {
 });
 
 ipcMain.on('is-dev', (event) => {
-  event.returnValue = isDevelopment;
+  event.returnValue = IS_DEVELOPMENT;
 });
