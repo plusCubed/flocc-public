@@ -64,9 +64,12 @@ const createWindow = () => {
   });
 
   const openExternalListener = (e, url) => {
-    e.preventDefault();
-    require('electron').shell.openExternal(url);
+    if (new URL(url).hostname !== 'localhost') {
+      e.preventDefault();
+      require('electron').shell.openExternal(url);
+    }
   };
+  mainWindow.webContents.on('will-navigate', openExternalListener);
   mainWindow.webContents.on('new-window', openExternalListener);
 
   mainWindow.setMenuBarVisibility(false);
