@@ -7,7 +7,11 @@ const ICE_SERVERS = [
   { urls: 'stun:stun.sipnet.net:3478' },
   { urls: 'stun:stun.ideasip.com:3478' },
   { urls: 'stun:stun.iptel.org:3478' },
-  /*{
+  {
+    url: 'stun:global.stun.twilio.com:3478?transport=udp',
+    urls: 'stun:global.stun.twilio.com:3478?transport=udp',
+  },
+  {
     urls: [
       'turn:173.194.72.127:19305?transport=udp',
       'turn:[2404:6800:4008:C01::7F]:19305?transport=udp',
@@ -16,7 +20,7 @@ const ICE_SERVERS = [
     ],
     username: 'CKjCuLwFEgahxNRjuTAYzc/s6OMT',
     credential: 'u1SQDR/SQsPQIxXNWQT7czc/G4c=',
-  },*/
+  },
 ];
 
 export class Peer extends Mitt {
