@@ -47,10 +47,10 @@ function useSocketRoom(socket, connected) {
     roomState === RoomState.JOINING || roomState === RoomState.LEAVING;
 
   const joinRoom = useCallback(
-    async (id, locked, force) => {
+    async (id, locked) => {
       if (!socket) return;
       if (transitioning) return;
-      if (id === roomId && !force) return; // already in this room
+      if (id === roomId) return; // already in this room
 
       // create room if id is null
       if (!id) {
@@ -102,9 +102,10 @@ function useSocketRoom(socket, connected) {
 
     // resume connection to room after losing connection
     if (!prevConnected && connected && roomId) {
-      joinRoom(roomId, false, true);
+      database.ref(`rooms/${roomId}/users/${uid}`).set({ mute: false }).then();
+      socket.emit('join', { room: roomId });
     }
-  }, [connected, joinRoom, prevConnected, roomId, socket]);
+  }, [connected, database, prevConnected, roomId, socket, uid]);
 
   const prevRoomState = usePrevious(roomState);
   useEffect(() => {

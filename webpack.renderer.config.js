@@ -47,7 +47,6 @@ module.exports = {
           sockIntegration: 'whm',
         },
       }),*/
-    new ESBuildPlugin(),
     !isDevelopment &&
       new MiniCssExtractPlugin({
         filename: 'main_window/[name].[contenthash:8].css',

@@ -160,13 +160,12 @@ io.on('connection', (socket) => {
   socket.on('join', async (msg) => {
     console.log(`[${socket.id}] event:join `, msg);
     const { room } = msg;
-
-    await leaveAllRoomsAsync(socket);
-
     if (room in socket.rooms) {
       // Already joined
       return;
     }
+
+    await leaveAllRoomsAsync(socket);
 
     socket.join(room);
     socket.emit(`joined`, { room });
