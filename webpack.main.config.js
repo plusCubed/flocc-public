@@ -25,5 +25,5 @@ module.exports = {
   module: {
     rules: rules,
   },
-  plugins: [new ESBuildPlugin()],
+  plugins: [],
 };
