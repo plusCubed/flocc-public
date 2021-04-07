@@ -1,5 +1,4 @@
 const { IgnorePlugin } = require('webpack');
-const { ESBuildPlugin } = require('esbuild-loader');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
@@ -27,7 +26,7 @@ rules.push(
         loader: 'postcss-loader',
         options: {
           postcssOptions: {
-            plugins: [require('@tailwindcss/jit'), require('autoprefixer')],
+            plugins: [require('tailwindcss'), require('autoprefixer')],
           },
         },
       },

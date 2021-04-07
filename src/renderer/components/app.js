@@ -10,7 +10,7 @@ import isElectron from 'is-electron';
 import firebaseConfig from '../config/firebaseConfig';
 import { SignInForm } from './signin';
 import { Home } from './home';
-import { ErrorBoundary } from './error';
+import { ErrorBoundary } from './errorBoundary';
 
 function ScreenCenter({ children }) {
   return (

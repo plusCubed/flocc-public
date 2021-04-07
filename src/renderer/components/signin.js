@@ -24,10 +24,6 @@ export function SignInForm() {
           }
         }
       );
-      /*const token = await electronOAuth.openAuthWindowAndGetTokens();
-      await auth.signInWithCredential(
-        GoogleAuthProvider.credential(null, token.access_token)
-      );*/
     } else {
       const provider = new GoogleAuthProvider();
       await auth.signInWithRedirect(provider);

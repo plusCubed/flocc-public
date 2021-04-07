@@ -15,6 +15,7 @@ export function useOSMicPermissionGranted() {
     async function updateGranted() {
       setGranted(await getOSMicPermissionGranted());
     }
+
     updateGranted();
   }, []);
   return granted;

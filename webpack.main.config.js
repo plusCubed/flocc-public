@@ -1,5 +1,3 @@
-const { ESBuildPlugin } = require('esbuild-loader');
-
 const rules = require('./webpack.rules');
 
 rules.push({

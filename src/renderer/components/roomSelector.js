@@ -1,51 +1,26 @@
-import React, { Suspense, useCallback } from 'react';
+import React, { Suspense, useCallback, useMemo } from 'react';
 import { useDatabase, useDatabaseObjectData, useUser } from 'reactfire';
+import { Button, SectionLabel } from './ui';
+import { RoomState } from './roomRtc';
 import {
-  Button,
   ExitIcon,
   LockClosedIcon,
   LockOpenIcon,
   MatMicrophoneOffIcon,
-  SectionLabel,
-} from './ui';
-import { RoomState } from './roomRtc';
-import usePromise from 'react-promise-suspense';
-
-/**
- * @param {firebase.database.Reference} ref
- * @param childKeys
- */
-function useDatabaseObjectDataPartialOnce(ref, childKeys) {
-  async function getPartial(ref, keys) {
-    /** @type firebase.database.DataSnapshot[] */
-    const docSnapshots = await Promise.all(
-      keys.map((key) => ref.child(key).once('value'))
-    );
-    const partial = {};
-    for (const snapshot of docSnapshots) {
-      partial[snapshot.key] = snapshot.val();
-    }
-    return partial;
-  }
-
-  return usePromise(getPartial, [ref, childKeys]);
-}
+} from './icons';
+import { useDatabaseObjectDataPartial } from '../hooks/useDatabaseObjectDataPartial';
 
 function RoomUsers({ currentRoomId, roomId, connectionStates }) {
   const database = useDatabase();
   const roomUsers = useDatabaseObjectData(
     database.ref(`rooms/${roomId}/users`)
   );
-  const userIds = Object.keys(roomUsers);
-  const userDocs = useDatabaseObjectDataPartialOnce(
-    database.ref('users'),
-    userIds
-  );
+  const userIds = useMemo(() => Object.keys(roomUsers), [roomUsers]);
+  const userDocs = useDatabaseObjectDataPartial('users', userIds);
   const currentUid = useUser().uid;
 
-  return (
-    <>
-      {userIds.map((uid) => {
+  return userDocs
+    ? Object.entries(userDocs).map(([uid, userDoc]) => {
         const connecting =
           roomId === currentRoomId &&
           currentUid !== uid &&
@@ -54,7 +29,7 @@ function RoomUsers({ currentRoomId, roomId, connectionStates }) {
         return (
           <div key={uid} className="flex items-center">
             <div className={'text-sm px-1 ' + nameClass}>
-              {userDocs[uid].displayName}
+              {userDoc.displayName}
             </div>
             <div className="text-gray-500">
               {roomUsers[uid].mute ? (
@@ -63,9 +38,8 @@ function RoomUsers({ currentRoomId, roomId, connectionStates }) {
             </div>
           </div>
         );
-      })}
-    </>
-  );
+      })
+    : null;
 }
 
 function Room({
@@ -113,10 +87,11 @@ function Room({
   return (
     <div
       className={
-        'w-full text-left focus:outline-none p-2 pl-3 mb-2 flex shadow-inner rounded bg-gray-100 ' +
-        (id !== currentRoomId
-          ? 'hover:bg-gray-200 border cursor-pointer'
-          : 'border-solid border border-teal-700')
+        'w-full text-left focus:outline-none p-2 pl-3 mb-2 flex shadow-inner rounded bg-gray-100' +
+        (id === currentRoomId
+          ? ' border border-solid' +
+            (locked ? ' border-red-500' : ' border-teal-700')
+          : ' border hover:bg-gray-200 cursor-pointer')
       }
       onClick={join}
     >
@@ -195,7 +170,7 @@ export function RoomSelector({
   }, [joinRoom]);
 
   return (
-    <div className="mt-2">
+    <div>
       {/*<SectionLabel className="mb-2">Lounges</SectionLabel>
       {permanentIds.map((id) => (
         <Room
@@ -226,7 +201,7 @@ export function RoomSelector({
         />
       ))}
       {currentRoomLocked ? (
-        <div className="text-gray-400">
+        <div className="text-gray-400 text-center">
           <div>Unlock to join friend rooms,</div>
           <div>and let friends join yours!</div>
         </div>

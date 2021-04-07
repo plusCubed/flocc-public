@@ -12,8 +12,9 @@ import {
   useDatabaseListData,
   useDatabaseObjectData,
 } from 'reactfire';
-import { usePrevious } from '../util/usePrev';
-import { Button, MusicIcon, SkipNextIcon } from './ui';
+import { usePrevious } from '../hooks/usePrev';
+import { Button } from './ui';
+import { MusicIcon, SkipNextIcon } from './icons';
 
 export function Music({ currentRoomId }) {
   const config = useMemo(() => {
@@ -46,34 +47,35 @@ export function Music({ currentRoomId }) {
           await musicSyncDbRef.child(`${queueId}`).remove();
         };
 
-        const ytsr = require('ytsr');
-        try {
-          const filters1 = await ytsr.getFilters(query);
-          const filter1 = filters1.get('Type').get('Video');
-          const options = { limit: 1 };
-          const searchResults = await ytsr(filter1.url, options);
-          //console.log('test');
-          if (searchResults.items && searchResults.items[0]) {
-            const result = searchResults.items[0];
-            await musicDbRef.child(`${queueId}`).set({
-              title: result.title,
-              url: result.url,
-              duration: result.duration,
-              isLive: result.isLive,
-            });
-            await musicSyncDbRef.child(`${queueId}`).set({
-              playedSeconds: 0,
-              playing: true,
-            });
-          } else {
-            // TODO: display no search results
-            reset();
+        const { ipcRenderer } = require('electron');
+        const options = { limit: 1 };
+        ipcRenderer.send('ytsr', query, options);
+        ipcRenderer.once(
+          'ytsr-response',
+          async (event, error, searchResults) => {
+            if (!error) {
+              if (searchResults.items && searchResults.items[0]) {
+                const result = searchResults.items[0];
+                await musicDbRef.child(`${queueId}`).set({
+                  title: result.title,
+                  url: result.url,
+                  duration: result.duration,
+                  isLive: result.isLive,
+                });
+                await musicSyncDbRef.child(`${queueId}`).set({
+                  playedSeconds: 0,
+                  playing: true,
+                });
+              } else {
+                // TODO: display no search results
+                reset();
+              }
+            } else {
+              console.error('Search error');
+              reset();
+            }
           }
-        } catch (e) {
-          console.error(e);
-          // TODO: display error
-          reset();
-        }
+        );
       }
     },
     [musicDbRef, musicSyncDbRef]

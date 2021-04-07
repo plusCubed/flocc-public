@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Audio } from './ui';
-import { useSocketListener } from '../util/socketHooks';
+import { useSocketListener } from '../hooks/useSocket';
 import { Peer } from '../util/peer';
 import { getOSMicPermissionGranted } from '../util/micPermission';
 

@@ -27,6 +27,16 @@ app.on('before-quit', () => {
   isQuiting = true;
 });
 
+if (IS_DEVELOPMENT) {
+  app
+    .whenReady()
+    .then(() => import('electron-devtools-installer'))
+    .then(({ default: installExtension, REACT_DEVELOPER_TOOLS }) => {
+      return installExtension(REACT_DEVELOPER_TOOLS);
+    })
+    .catch((e) => console.error('Failed install extension:', e));
+}
+
 const createWindow = () => {
   // Create the browser window.
   mainWindow = new BrowserWindow({
@@ -160,6 +170,8 @@ app.on('activate', () => {
 
 const ElectronGoogleOAuth2 = require('@getstation/electron-google-oauth2')
   .default;
+const ytsr = require('ytsr');
+
 const electronOAuth = new ElectronGoogleOAuth2(
   googleOAuthConfig.clientId,
   googleOAuthConfig.clientSecret,
@@ -179,4 +191,15 @@ ipcMain.on('sign-in-with-google', async (event) => {
 
 ipcMain.on('is-dev', (event) => {
   event.returnValue = IS_DEVELOPMENT;
+});
+
+ipcMain.on('ytsr', async (event, query, options) => {
+  try {
+    const filters = await ytsr.getFilters(query);
+    const filter = filters.get('Type').get('Video');
+    const searchResults = await ytsr(filter.url, options);
+    event.reply('ytsr-response', null, searchResults);
+  } catch (e) {
+    event.reply('ytsr-response', e, null);
+  }
 });
