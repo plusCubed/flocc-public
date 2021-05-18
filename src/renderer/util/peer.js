@@ -60,9 +60,11 @@ export class Peer extends Mitt {
     this.pc.onicecandidate = (event) => {
       console.info(`[${this.peerUid}] send ice candidate`);
       if (event.candidate) {
-        this.socket.emit('relayICECandidate', {
+        this.socket.emit('signal', {
           peerUid: this.peerUid,
-          iceCandidate: event.candidate.toJSON(),
+          data: {
+            candidate: event.candidate.toJSON(),
+          },
         });
       }
     };
@@ -87,9 +89,11 @@ export class Peer extends Mitt {
         this.makingOffer = true;
         await this.pc.setLocalDescription();
         console.info(`[${this.peerUid}] send session description offer`);
-        this.socket.emit('relaySessionDescription', {
+        this.socket.emit('signal', {
           peerUid: this.peerUid,
-          sessionDescription: this.pc.localDescription.toJSON(),
+          data: {
+            sdp: this.pc.localDescription.toJSON(),
+          },
         });
       } catch (err) {
         console.error(err);
@@ -124,9 +128,11 @@ export class Peer extends Mitt {
     if (description.type === 'offer') {
       await this.pc.setLocalDescription();
       console.info(`[${this.peerUid}] send session description answer`);
-      this.socket.emit('relaySessionDescription', {
+      this.socket.emit('signal', {
         peerUid: this.peerUid,
-        sessionDescription: this.pc.localDescription.toJSON(),
+        data: {
+          sdp: this.pc.localDescription.toJSON(),
+        },
       });
     }
   }

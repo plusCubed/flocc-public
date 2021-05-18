@@ -4,13 +4,7 @@ import { Audio } from './ui';
 import { useSocketListener } from '../hooks/useSocket';
 import { Peer } from '../util/peer';
 import { getOSMicPermissionGranted } from '../util/micPermission';
-
-export const RoomState = {
-  NONE: 'NONE',
-  JOINING: 'JOINING',
-  JOINED: 'JOINED',
-  LEAVING: 'LEAVING',
-};
+import { useUser } from 'reactfire';
 
 function getAudioInputStream(device) {
   return navigator.mediaDevices.getUserMedia({
@@ -40,6 +34,7 @@ export function RoomRtc({
   outputDevice,
   onConnectionStatesChange,
 }) {
+  const uid = useUser().uid;
   // non-UI state
   const peers = useRef({});
   // UI state
@@ -47,43 +42,51 @@ export function RoomRtc({
   const [peerStreams, setPeerStreams] = useState({});
   const [peerConnectionStates, setPeerConnectionStates] = useState({});
 
-  const micStream = useRef(null);
+  const micStreamState = useRef(null);
 
   // update sender tracks / mic stream
   useEffect(() => {
     let canceled = false;
     const updateSenderTracks = async () => {
       const peersList = Object.values(peers.current);
-
-      if (peersList.length === 0 && micStream.current) {
+      // No peers => disconnect mic stream
+      if (peersList.length === 0 && micStreamState.current) {
         console.info(`Mic stream stopped`);
-        for (const track of micStream.current.getTracks()) {
+        for (const track of micStreamState.current?.stream.getTracks()) {
           track.stop();
         }
-        micStream.current = null;
+        micStreamState.current = null;
         return;
       }
 
-      if (peersList.length > 0 && !micStream.current) {
+      // Yes peers & need to obtain mic stream
+      if (
+        peersList.length > 0 &&
+        (!micStreamState.current ||
+          micStreamState.current.device !== inputDevice)
+      ) {
         try {
-          micStream.current = await getMicStream(inputDevice);
+          micStreamState.current = {
+            device: inputDevice,
+            stream: await getMicStream(inputDevice),
+          };
         } catch (err) {
           alert(err);
-          micStream.current = null;
+          micStreamState.current = null;
         }
       }
       if (canceled) {
         return;
       }
 
-      const micTrack = micStream.current?.getTracks()?.[0];
+      const micTrack = micStreamState.current?.stream.getTracks()?.[0];
       if (!micTrack) return;
       micTrack.enabled = !mute; // set mute
       for (const peer of peersList) {
         const senders = peer.pc.getSenders();
         if (senders.length === 0 || (senders[0] && !senders[0].track)) {
           console.info(`[${peer.peerUid}] add mic track`);
-          peer.pc.addTrack(micTrack, micStream.current);
+          peer.pc.addTrack(micTrack, micStreamState.current?.stream);
         } else if (senders[0].track.id !== micTrack.id) {
           console.info(`[${peer.peerUid}] replace mic track`);
           senders[0].replaceTrack(micTrack).catch((err) => {
@@ -111,14 +114,14 @@ export function RoomRtc({
   }, [peerConnectionStates, onConnectionStatesChange]);
 
   const addPeer = useCallback(
-    ({ peerSocketId, peerUid, shouldCreateOffer: polite }) => {
-      console.info(`socket: [${peerUid}] addPeer, polite:`, polite);
-
+    ({ peerSocketId, peerUid }) => {
       if (peerUid in peers.current) {
         // Already added
-        console.warn(`[${peerUid}] already added`);
         return;
       }
+
+      const polite = uid < peerUid;
+      console.info(`addPeer ${peerUid}, polite:`, polite);
 
       const peer = new Peer(peerUid, polite, socket);
 
@@ -138,7 +141,7 @@ export function RoomRtc({
       peers.current[peerUid] = peer;
       setPeerUids(Object.keys(peers.current));
     },
-    [socket]
+    [socket, uid]
   );
   useSocketListener(socket, 'addPeer', addPeer);
 
@@ -161,44 +164,34 @@ export function RoomRtc({
   }, []);
   useSocketListener(socket, 'removePeer', removePeer);
 
-  const processSessionDescription = useCallback(
-    ({ peerSocketId, peerUid, sessionDescription }) => {
-      console.info(
-        `socket: [${peerUid}] sessionDescription received`,
-        sessionDescription
-      );
+  // WebRTC signaling
+  const processSignal = useCallback(
+    ({ peerSocketId, peerUid, data }) => {
+      console.info(`socket: [${peerUid}] signaling data received`, data);
 
       if (!(peerUid in peers.current)) {
-        console.error(`[${peerUid}] ERROR: peer uid not found`);
-        return;
+        addPeer({ peerSocketId, peerUid });
       }
 
       const peer = peers.current[peerUid];
-      const description = new RTCSessionDescription(sessionDescription);
-      peer.processDescription(description).catch((err) => {
-        console.error(err);
-      });
-    },
-    []
-  );
-  useSocketListener(socket, 'sessionDescription', processSessionDescription);
 
-  const processIceCandidate = useCallback(
-    ({ peerSocketId, peerUid, iceCandidate }) => {
-      console.info(`socket: [${peerUid}] iceCandidate received`);
-      if (!(peerUid in peers.current)) {
-        console.error(`[${peerUid}] ERROR: peer uid not found`);
-        return;
+      if (data.sdp) {
+        const description = new RTCSessionDescription(data.sdp);
+        peer.processDescription(description).catch((err) => {
+          console.error(err);
+        });
       }
-      const peer = peers.current[peerUid];
-      const candidate = new RTCIceCandidate(iceCandidate);
-      peer.processCandidate(candidate).catch((err) => {
-        console.error(err);
-      });
+
+      if (data.candidate) {
+        const candidate = new RTCIceCandidate(data.candidate);
+        peer.processCandidate(candidate).catch((err) => {
+          console.error(err);
+        });
+      }
     },
-    []
+    [addPeer]
   );
-  useSocketListener(socket, 'iceCandidate', processIceCandidate);
+  useSocketListener(socket, 'signal', processSignal);
 
   return (
     <>

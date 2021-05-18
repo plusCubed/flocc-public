@@ -1,24 +1,26 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useAuth, useDatabase, useUser } from 'reactfire';
-import isElectron from 'is-electron';
+import {
+  useAuth,
+  useDatabase,
+  useDatabaseObjectData,
+  useUser,
+} from 'reactfire';
 
 import { RoomRtc } from './roomRtc';
 import { useSocket } from '../hooks/useSocket';
-import { RoomSelector } from './roomSelector';
+import { RoomList } from './roomList';
 import { Music } from './music';
 import { useSocketRoom } from '../hooks/useSocketRoom';
 import { SettingsDropdown } from './settingsDropdown';
 import { MatMicrophoneIcon, MatMicrophoneOffIcon } from './icons';
-//import { Friends, PeopleSearch } from './friends';
+import { Friends, PeopleSearch } from './friends';
+import { SectionLabel } from './ui';
+import { isDevelopment } from '../util/isDevelopment';
+import RoomState from '../../../common/roomState';
 
-const isDevelopment =
-  (isElectron() && require('electron').ipcRenderer.sendSync('is-dev')) ||
-  (!isElectron() && window.location.hostname === 'localhost');
-
-const SOCKET_ENDPOINT =
-  /*isDevelopment
+const SOCKET_ENDPOINT = isDevelopment
   ? 'http://localhost:3010'
-  : */ 'https://server.flocc.app:8443';
+  : 'https://server.flocc.app:8443';
 
 export function Home() {
   const database = useDatabase();
@@ -39,6 +41,26 @@ export function Home() {
     connected
   );
 
+  useEffect(() => {
+    const onfocus = function (event) {
+      console.log('focus');
+      /*if (roomState === RoomState.NONE) {
+        joinRoom(null, true).then();
+      }*/
+    };
+
+    const onblur = function (event) {
+      console.log('blur');
+    };
+
+    window.addEventListener('focus', onfocus);
+    window.addEventListener('blur', onblur);
+    return () => {
+      window.removeEventListener('focus', onfocus);
+      window.removeEventListener('blur', onblur);
+    };
+  }, [joinRoom, roomState]);
+
   const auth = useAuth();
   const signOut = useCallback(async () => {
     await leaveRoom();
@@ -47,15 +69,11 @@ export function Home() {
 
   const [connectionStates, setConnectionStates] = useState({});
 
-  const [mute, setMute] = useState(false);
+  const muteRef = database.ref(`users/${uid}/mute`);
+  const mute = useDatabaseObjectData(muteRef);
   const toggleMute = useCallback(() => {
-    setMute((mute) => !mute);
-  }, []);
-  useEffect(() => {
-    if (roomId) {
-      database.ref(`rooms/${roomId}/users/${uid}/mute`).set(mute);
-    }
-  }, [database, mute, roomId, uid]);
+    muteRef.set(!mute).then();
+  }, [mute, muteRef]);
 
   return (
     <div className="w-full h-full p-2 max-w-lg mx-auto">
@@ -88,7 +106,7 @@ export function Home() {
           </div>
           <div className="overflow-y-auto flex-1 flex flex-col">
             <div className="flex-1 mt-2">
-              <RoomSelector
+              <RoomList
                 currentRoomId={roomId}
                 currentRoomState={roomState}
                 joinRoom={joinRoom}
@@ -97,11 +115,11 @@ export function Home() {
               />
             </div>
 
-            {/*<div className="mt-6 mb-2 flex-1 flex flex-col">
+            <div className="mt-6 mb-2 flex-1 flex flex-col">
               <SectionLabel>Friends</SectionLabel>
               <Friends />
               <PeopleSearch />
-            </div>*/}
+            </div>
           </div>
           <RoomRtc
             socket={socket}

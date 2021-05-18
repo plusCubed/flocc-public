@@ -6,11 +6,13 @@ import {
   useAuth,
 } from 'reactfire';
 import isElectron from 'is-electron';
+import * as Sentry from '@sentry/electron';
 
 import firebaseConfig from '../config/firebaseConfig';
 import { SignInForm } from './signin';
 import { Home } from './home';
 import { ErrorBoundary } from './errorBoundary';
+import { isDevelopment } from '../util/isDevelopment';
 
 function ScreenCenter({ children }) {
   return (
@@ -18,9 +20,12 @@ function ScreenCenter({ children }) {
   );
 }
 
-const isDevelopment =
-  (isElectron() && require('electron').ipcRenderer.sendSync('is-dev')) ||
-  (!isElectron() && window.location.hostname === 'localhost');
+if (!isDevelopment) {
+  Sentry.init({
+    dsn:
+      'https://817efb9fe22b4900ad01c6a9cd2a17cf@o604937.ingest.sentry.io/5744711',
+  });
+}
 
 /*if (isDevelopment) {
   firebaseConfig.databaseURL = 'http://localhost:9000/?ns=floccapp';

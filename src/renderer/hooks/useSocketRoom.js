@@ -1,19 +1,38 @@
-import { useDatabase, useUser } from 'reactfire';
-import { useCallback, useEffect, useState } from 'react';
-import { RoomState } from '../components/roomRtc';
-import { useSocketListener } from './useSocket';
+import { useDatabase, useDatabaseObjectData, useUser } from 'reactfire';
+import { useCallback, useEffect } from 'react';
 import { usePrevious } from './usePrev';
+import RoomState from '../../../common/roomState';
+
+function isString(obj) {
+  return typeof obj === 'string' || obj instanceof String;
+}
+
+function useRoomState() {
+  const database = useDatabase();
+  const uid = useUser().uid;
+  const roomStateRef = database.ref(`users/${uid}/roomState`);
+  const roomStateObjectData = useDatabaseObjectData(roomStateRef);
+  return isString(roomStateObjectData) ? roomStateObjectData : RoomState.NONE;
+}
+
+function useRoomId() {
+  const database = useDatabase();
+  const uid = useUser().uid;
+  const userRoomRef = database.ref(`users/${uid}/room`);
+  const roomIdObjectData = useDatabaseObjectData(userRoomRef);
+  return isString(roomIdObjectData) ? roomIdObjectData : '';
+}
 
 export function useSocketRoom(socket, connected) {
   const database = useDatabase();
   const uid = useUser().uid;
 
-  // TODO: Use reducer (an actual state machine can you imagine)
-  const [roomId, setRoomId] = useState('');
-  const [roomState, setRoomState] = useState(RoomState.NONE);
-
+  const roomId = useRoomId();
+  const roomState = useRoomState();
   const transitioning =
     roomState === RoomState.JOINING || roomState === RoomState.LEAVING;
+
+  const roomStateRef = database.ref(`users/${uid}/roomState`);
 
   const joinRoom = useCallback(
     async (id, locked) => {
@@ -22,17 +41,11 @@ export function useSocketRoom(socket, connected) {
       if (id === roomId) return; // already in this room
 
       // create room if id is null
-      if (!id) {
-        const roomRef = database.ref(`rooms`).push({ locked: !!locked });
-        id = roomRef.key;
-      }
       console.info('Joining room', id);
-      setRoomId(id);
-      setRoomState(RoomState.JOINING);
-      database.ref(`rooms/${id}/users/${uid}`).set({ mute: false }).then();
-      socket.emit('join', { room: id });
+      roomStateRef.set(RoomState.JOINING);
+      socket.emit('join', { room: id, locked });
     },
-    [database, roomId, socket, transitioning, uid]
+    [roomId, roomStateRef, socket, transitioning]
   );
 
   const leaveRoom = useCallback(async () => {
@@ -40,30 +53,9 @@ export function useSocketRoom(socket, connected) {
 
     // assume connected
     console.info('Leaving room', roomId);
-    setRoomId('');
-    setRoomState(RoomState.LEAVING);
-    database.ref(`rooms/${roomId}/users/${uid}`).remove().then();
+    roomStateRef.set(RoomState.LEAVING);
     socket?.emit('leave');
-  }, [transitioning, roomId, database, uid, socket]);
-
-  const handleJoined = useCallback(({ room }) => {
-    console.log(`socket: joined ${room}`);
-    setRoomId(room);
-    setRoomState(RoomState.JOINED);
-  }, []);
-  useSocketListener(socket, 'joined', handleJoined);
-
-  const handleLeft = useCallback(() => {
-    console.log('socket: left');
-    setRoomId('');
-    setRoomState((state) => {
-      if (state === RoomState.LEAVING) {
-        return RoomState.NONE;
-      }
-      return state;
-    });
-  }, []);
-  useSocketListener(socket, 'left', handleLeft);
+  }, [transitioning, roomId, roomStateRef, socket]);
 
   const prevConnected = usePrevious(connected);
   useEffect(() => {
@@ -71,7 +63,6 @@ export function useSocketRoom(socket, connected) {
 
     // resume connection to room after losing connection
     if (!prevConnected && connected && roomId) {
-      database.ref(`rooms/${roomId}/users/${uid}`).set({ mute: false }).then();
       socket.emit('join', { room: roomId });
     }
   }, [connected, database, prevConnected, roomId, socket, uid]);
@@ -82,23 +73,6 @@ export function useSocketRoom(socket, connected) {
       joinRoom(null, prevRoomState === RoomState.NONE);
     }
   }, [joinRoom, prevRoomState, roomState, socket, uid]);
-
-  useEffect(() => {
-    const onfocus = function (event) {
-      console.log('focus');
-    };
-
-    const onblur = function (event) {
-      console.log('blur');
-    };
-
-    window.addEventListener('focus', onfocus);
-    window.addEventListener('blur', onblur);
-    return () => {
-      window.removeEventListener('focus', onfocus);
-      window.removeEventListener('blur', onblur);
-    };
-  }, []);
 
   return { roomId, roomState, joinRoom, leaveRoom };
 }

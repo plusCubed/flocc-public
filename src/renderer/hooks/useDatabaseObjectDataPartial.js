@@ -1,29 +1,44 @@
 import { useEffect, useState } from 'react';
 import { useDatabase } from 'reactfire';
 
+/**
+ * @param {string} path
+ * @param {[string]} childKeys
+ * @returns {Object.<string, Object> | null}
+ */
 export function useDatabaseObjectDataPartial(path, childKeys) {
   const [objectData, setObjectData] = useState(null);
 
   const database = useDatabase();
   useEffect(() => {
-    let cancelled = false;
+    let listeners = {};
 
-    async function updateObjectData() {
-      /** @type firebase.database.DataSnapshot[] */
-      const docSnapshots = await Promise.all(
-        childKeys.map((key) => database.ref(path).child(key).once('value'))
-      );
-      const objectData = {};
-      for (const snapshot of docSnapshots) {
-        objectData[snapshot.key] = snapshot.val();
+    // remove data no longer in childKeys
+    setObjectData((objectData) => {
+      if (objectData === null) return null;
+      const newObjectData = {};
+      for (const key of Object.keys(objectData)) {
+        if (key in childKeys) {
+          newObjectData[key] = objectData[key];
+        }
       }
-      if (!cancelled) setObjectData(objectData);
+      return newObjectData;
+    });
+
+    for (const childKey of childKeys) {
+      listeners[childKey] = (snapshot) => {
+        setObjectData((objectData) => ({
+          ...objectData,
+          [snapshot.key]: snapshot.val(),
+        }));
+      };
+      database.ref(path).child(childKey).on('value', listeners[childKey]);
     }
 
-    updateObjectData();
-
     return () => {
-      cancelled = true;
+      for (const childKey of childKeys) {
+        database.ref(path).child(childKey).off('value', listeners[childKey]);
+      }
     };
   }, [childKeys, database, path]);
 

@@ -1,13 +1,16 @@
-const express = require('express');
-const http = require('http');
-const https = require('https');
-const admin = require('firebase-admin');
-const fs = require('fs');
+import { Server } from 'socket.io';
+import express from 'express';
+import http from 'http';
+import https from 'https';
+import admin from 'firebase-admin';
+import fs from 'fs';
+import serviceAccount from './service-account.json';
+import RoomState from '../common/roomState.js';
 
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
 const app = express();
-const server = isDevelopment
+const httpServer = isDevelopment
   ? http.createServer(app)
   : https.createServer(
       {
@@ -16,21 +19,28 @@ const server = isDevelopment
       },
       app
     );
-const io = require('socket.io').listen(server);
-
-const serviceAccount = require('./service-account.json');
+const io = new Server(httpServer, {
+  cors: {
+    origin: 'http://localhost:3000',
+    credentials: true,
+  },
+  allowEIO3: true,
+});
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
   databaseURL: 'https://floccapp.firebaseio.com',
 });
 
+const database = admin.database();
+
 async function deleteFirebaseRoom(room) {
-  await admin.database().ref(`rooms/${room}`).remove();
-  await admin.database().ref(`musicSync/${room}`).remove();
+  await database.ref(`rooms/${room}`).remove();
+  await database.ref(`musicSync/${room}`).remove();
 }
 
 async function cleanUpRooms() {
-  const rooms = (await admin.database().ref('rooms').once('value')).val();
+  const rooms = (await database.ref('rooms').once('value')).val();
+  if (!rooms) return;
   for (const [room, roomDoc] of Object.entries(rooms)) {
     // Delete temporary rooms
     if (!roomDoc.permanent) {
@@ -38,39 +48,53 @@ async function cleanUpRooms() {
     }
     // Clear users from permanent rooms
     if (roomDoc.permanent) {
-      await admin.database().ref(`rooms/${room}/users`).remove();
+      await database.ref(`rooms/${room}/users`).remove();
     }
   }
 }
-cleanUpRooms();
+cleanUpRooms().then();
 
 // Get PORT from env variable else assign 3000 for development
 const PORT = isDevelopment ? process.env.PORT || 3010 : 8443;
-server.listen(PORT, null, function () {
+httpServer.listen(PORT, null, function () {
   console.log('Listening on port ' + PORT);
 });
 
+/**
+ * @type {Object.<string, Socket>}
+ */
 const uidToSocket = {};
 
+/**
+ * @param {Socket} socket
+ * @return {[string]}
+ */
 function getRooms(socket) {
-  return Object.keys(socket.rooms).filter((room) => room !== socket.id);
+  const rooms = new Set(socket.rooms);
+  rooms.delete(socket.id);
+  return Array.from(rooms);
 }
 
+/**
+ * @param {Socket} socket
+ * @param {string} room
+ * @return {Socket[]}
+ */
 function getPeersInRoom(socket, room) {
-  const roomObj = io.sockets.adapter.rooms[room];
-  if (roomObj) {
-    return Object.keys(roomObj.sockets)
-      .filter((id) => id !== socket.id)
-      .map((peerId) => io.sockets.sockets[peerId]);
-  } else {
-    return [];
-  }
+  const socketIds = new Set(io.of('/').adapter.rooms.get(room));
+  socketIds.delete(socket.id);
+  return Array.from(socketIds).map((socketId) =>
+    io.of('/').sockets.get(socketId)
+  );
 }
 
+/**
+ * @param {Socket} socket
+ * @param {string} room
+ * @returns {Promise<void>}
+ */
 function leaveRoom(socket, room) {
   console.log(`[${socket.id}] leave room ${room}`);
-  const database = admin.database();
-
   const uid = socket.user.uid;
 
   // tell peers to remove this
@@ -94,34 +118,44 @@ function leaveRoom(socket, room) {
   return (async () => {
     try {
       await database.ref(`rooms/${room}/users/${uid}`).remove();
-
-      // Delete temporary room if no users left
+      // Delete room if no users left
       const roomDoc = (await database.ref(`rooms/${room}`).once('value')).val();
       if (!roomDoc.users && !roomDoc.permanent) {
         await deleteFirebaseRoom(room);
       }
+      await database.ref(`users/${uid}/room`).set('');
     } catch (ignored) {}
   })();
 }
 
+/**
+ * @param {Socket} socket
+ */
 async function leaveAllRoomsAsync(socket) {
   const rooms = getRooms(socket);
-  console.log(`[${socket.id}] leaving all rooms`);
-  return Promise.all(rooms.map((room) => leaveRoom(socket, room)));
+  if (rooms.length > 0) {
+    console.log(`[${socket.id}] leaving all rooms`);
+    await Promise.all(rooms.map((room) => leaveRoom(socket, room)));
+  }
 }
 
+/**
+ * @param {Socket} socket
+ */
 function leaveAllRooms(socket) {
   const rooms = getRooms(socket);
-  console.log(`[${socket.id}] leaving all rooms`);
-  for (const room of rooms) {
-    leaveRoom(socket, room);
+  if (rooms.length > 0) {
+    console.log(`[${socket.id}] leaving all rooms`);
+    for (const room of rooms) {
+      leaveRoom(socket, room).then();
+    }
   }
 }
 
 io.use(async (socket, next) => {
   const { idToken } = socket.handshake.query;
   try {
-    console.log('verifying id token');
+    console.log(`[${socket.id}] verifying id token`);
     socket.user = await admin.auth().verifyIdToken(idToken);
     const uid = socket.user.uid;
     if (uid in uidToSocket) {
@@ -131,7 +165,7 @@ io.use(async (socket, next) => {
       uidToSocket[uid].disconnect(true);
     }
     uidToSocket[uid] = socket;
-    console.log('token verified');
+    console.log(`[${socket.id}] token verified`);
     next();
   } catch (e) {
     next(new Error('forbidden'));
@@ -139,6 +173,8 @@ io.use(async (socket, next) => {
 });
 
 io.on('connection', (socket) => {
+  const uid = socket.user.uid;
+
   // const socketHostName = socket.handshake.headers.host.split(':')[0];
   console.log(`[${socket.id}] event:connection`);
 
@@ -155,17 +191,24 @@ io.on('connection', (socket) => {
       delete uidToSocket[socket.user.uid];
     }
     leaveAllRooms(socket);
+    database.ref(`users/${uid}/roomState`).set(RoomState.NONE);
   });
 
   socket.on('join', async (msg) => {
     console.log(`[${socket.id}] event:join `, msg);
-    const { room } = msg;
+    let { room, locked } = msg;
     if (room in socket.rooms) {
-      // Already joined
-      return;
+      return; // Already joined
     }
-
     await leaveAllRoomsAsync(socket);
+
+    if (!room) {
+      const roomRef = await database.ref(`rooms`).push({ locked: !!locked });
+      room = roomRef.key;
+    }
+    database.ref(`rooms/${room}/users/${uid}`).set(true).then();
+    database.ref(`users/${uid}/room`).set(room).then();
+    database.ref(`users/${uid}/roomState`).set(RoomState.JOINED).then();
 
     socket.join(room);
     socket.emit(`joined`, { room });
@@ -174,8 +217,7 @@ io.on('connection', (socket) => {
     console.log(`[${room}] add peer`, socket.id);
     socket.to(room).emit('addPeer', {
       peerSocketId: socket.id,
-      peerUid: socket.user.uid,
-      shouldCreateOffer: false,
+      peerUid: uid,
     });
 
     // tell this to add each peer
@@ -185,56 +227,30 @@ io.on('connection', (socket) => {
       socket.emit('addPeer', {
         peerSocketId: peerSocket.id,
         peerUid: peerSocket.user.uid,
-        shouldCreateOffer: true,
       });
     }
   });
 
   socket.on('leave', async () => {
     console.log(`[${socket.id}] event:leave`);
-    await leaveAllRooms(socket);
+    await leaveAllRoomsAsync(socket);
+    await database.ref(`users/${uid}/roomState`).set(RoomState.NONE);
     socket.emit('left');
   });
 
-  socket.on('relayICECandidate', (msg) => {
-    const { peerUid, iceCandidate } = msg;
+  socket.on('signal', (msg) => {
+    const { peerUid, data } = msg;
     const peerSocket = uidToSocket[peerUid];
     if (!peerSocket) {
-      console.error(
-        `[${socket.id}] relay ICE-candidate failed, invalid peerUid`,
-        peerUid
-      );
+      console.error(`[${socket.id}] signal failed, invalid peerUid`, peerUid);
       return;
     }
-    console.log(`[${socket.id}] relay ICE-candidate to [${peerSocket.id}]`);
+    console.log(`[${socket.id}] signal to [${peerSocket.id}]`);
 
-    socket.to(peerSocket.id).emit('iceCandidate', {
+    socket.to(peerSocket.id).emit('signal', {
       peerSocketId: socket.id,
-      peerUid: socket.user.uid,
-      iceCandidate: iceCandidate,
-    });
-  });
-
-  socket.on('relaySessionDescription', (msg) => {
-    const { peerUid, sessionDescription } = msg;
-    const peerSocket = uidToSocket[peerUid];
-    if (!peerSocket) {
-      console.error(
-        `[${socket.id}] relay SessionDescription failed, invalid peerUid`,
-        peerUid
-      );
-      return;
-    }
-
-    console.log(
-      `[${socket.id}] relay SessionDescription to [${peerSocket.id}]: `,
-      sessionDescription.type
-    );
-
-    socket.to(peerSocket.id).emit('sessionDescription', {
-      peerSocketId: socket.id,
-      peerUid: socket.user.uid,
-      sessionDescription: sessionDescription,
+      peerUid: uid,
+      data,
     });
   });
 });

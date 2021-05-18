@@ -1,3 +1,5 @@
+import * as Sentry from '@sentry/electron';
+
 const {
   app,
   BrowserWindow,
@@ -12,6 +14,13 @@ const IS_DEVELOPMENT = require('electron-is-dev');
 
 const TrayGenerator = require('./tray');
 const googleOAuthConfig = require('./config/googleOAuthConfig').default;
+
+if (!IS_DEVELOPMENT) {
+  Sentry.init({
+    dsn:
+      'https://817efb9fe22b4900ad01c6a9cd2a17cf@o604937.ingest.sentry.io/5744711',
+  });
+}
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {

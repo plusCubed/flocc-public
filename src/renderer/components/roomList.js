@@ -1,45 +1,42 @@
 import React, { Suspense, useCallback, useMemo } from 'react';
 import { useDatabase, useDatabaseObjectData, useUser } from 'reactfire';
 import { Button, SectionLabel } from './ui';
-import { RoomState } from './roomRtc';
 import {
+  AddIcon,
   ExitIcon,
   LockClosedIcon,
   LockOpenIcon,
   MatMicrophoneOffIcon,
 } from './icons';
 import { useDatabaseObjectDataPartial } from '../hooks/useDatabaseObjectDataPartial';
+import RoomState from '../../../common/roomState';
 
-function RoomUsers({ currentRoomId, roomId, connectionStates }) {
+function RoomUsers({ currentRoomId, roomId, roomUsers, connectionStates }) {
   const database = useDatabase();
-  const roomUsers = useDatabaseObjectData(
-    database.ref(`rooms/${roomId}/users`)
-  );
   const userIds = useMemo(() => Object.keys(roomUsers), [roomUsers]);
   const userDocs = useDatabaseObjectDataPartial('users', userIds);
   const currentUid = useUser().uid;
 
-  return userDocs
-    ? Object.entries(userDocs).map(([uid, userDoc]) => {
-        const connecting =
-          roomId === currentRoomId &&
-          currentUid !== uid &&
-          connectionStates[uid] !== 'connected';
-        const nameClass = connecting ? 'text-gray-500' : '';
-        return (
-          <div key={uid} className="flex items-center">
-            <div className={'text-sm px-1 ' + nameClass}>
-              {userDoc.displayName}
-            </div>
-            <div className="text-gray-500">
-              {roomUsers[uid].mute ? (
-                <MatMicrophoneOffIcon width={18} height={18} />
-              ) : null}
-            </div>
-          </div>
-        );
-      })
-    : null;
+  return userIds.map((uid) => {
+    const connecting =
+      roomId === currentRoomId &&
+      currentUid !== uid &&
+      connectionStates[uid] !== 'connected';
+    const nameClass = connecting ? 'text-gray-500' : '';
+    const userDoc = userDocs?.[uid];
+    return (
+      <div key={uid} className="flex items-center">
+        <div className={'text-sm px-1 ' + nameClass}>
+          {userDoc?.displayName ?? '...'}
+        </div>
+        <div className="text-gray-500">
+          {userDoc?.mute ? (
+            <MatMicrophoneOffIcon width={18} height={18} />
+          ) : null}
+        </div>
+      </div>
+    );
+  });
 }
 
 function Room({
@@ -68,15 +65,13 @@ function Room({
   const isInCurrentRoom =
     currentRoomState === RoomState.JOINED && currentRoomId === id;
 
-  const roomUsers = useDatabaseObjectData(
-    database.ref(`rooms/${currentRoomId}/users`)
-  );
+  const roomUsers = useDatabaseObjectData(database.ref(`rooms/${id}/users`));
 
   const permanent =
     useDatabaseObjectData(database.ref(`rooms/${id}/permanent`)) === true;
 
-  const showLeaveButton =
-    isInCurrentRoom && (permanent || Object.keys(roomUsers).length >= 2);
+  const roomUserCount = Object.keys(roomUsers).length;
+  const showLeaveButton = isInCurrentRoom;
 
   const locked =
     useDatabaseObjectData(database.ref(`rooms/${id}/locked`)) === true;
@@ -84,6 +79,9 @@ function Room({
     database.ref(`rooms/${id}/locked`).set(!locked);
   }, [database, id, locked]);
 
+  if (roomUserCount === 0) {
+    return null;
+  }
   return (
     <div
       className={
@@ -101,6 +99,7 @@ function Room({
           <RoomUsers
             currentRoomId={currentRoomId}
             roomId={id}
+            roomUsers={roomUsers}
             connectionStates={connectionStates}
           />
         </Suspense>
@@ -135,7 +134,7 @@ function Room({
   );
 }
 
-export function RoomSelector({
+export function RoomList({
   currentRoomId,
   currentRoomState,
   joinRoom,
@@ -185,9 +184,9 @@ export function RoomSelector({
       ))}*/}
       <div className="mb-2 flex items-center">
         <SectionLabel className="flex-1">Rooms</SectionLabel>
-        {/*<Button onClick={createAndJoinRoom} disabled={transitioning}>
+        <Button onClick={createAndJoinRoom} disabled={transitioning}>
           <AddIcon width={16} height={16} />
-        </Button>*/}
+        </Button>
       </div>
       {tempIds.map((id) => (
         <Room

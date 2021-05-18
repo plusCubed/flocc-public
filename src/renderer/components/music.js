@@ -204,7 +204,7 @@ export function Music({ currentRoomId }) {
             type="range"
             min="0"
             max="100"
-            value={volume.toString()}
+            defaultValue={volume.toString()}
             onInput={handleVolumeInput}
           />
 

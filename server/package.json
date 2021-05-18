@@ -4,17 +4,16 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "start-prod": "cross-env NODE_ENV=production node server.js",
+    "start-prod": "cross-env NODE_ENV=production node --experimental-json-modules server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "cors": "^2.8.5",
     "express": "^4.17.1",
-    "firebase-admin": "^9.5.0",
-    "socket.io": "^2.4.1"
+    "firebase-admin": "^9.7.0",
+    "socket.io": "^4.0.1"
   },
   "devDependencies": {
-    "@types/socket.io": "^2.1.13",
-    "cross-env": "^7.0.2"
-  }
+    "cross-env": "^7.0.3"
+  },
+  "type": "module"
 }
