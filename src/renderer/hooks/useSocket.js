@@ -20,10 +20,10 @@ export function useSocket(endpoint, user) {
         console.log('Disconnected from signaling server');
         setConnected(false);
       });
-      socket.on('error', async (e) => {
+      socket.on('connect_error', async (e) => {
         console.error('Signaling socket error:', e);
         socket.disconnect();
-        if (e === 'forbidden') {
+        if (e.message === 'forbidden') {
           setTimeout(async () => {
             console.log('attempt reconnect');
             const idToken = await user.getIdToken(false);

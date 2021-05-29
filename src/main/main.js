@@ -17,8 +17,7 @@ const googleOAuthConfig = require('./config/googleOAuthConfig').default;
 
 if (!IS_DEVELOPMENT) {
   Sentry.init({
-    dsn:
-      'https://817efb9fe22b4900ad01c6a9cd2a17cf@o604937.ingest.sentry.io/5744711',
+    dsn: 'https://817efb9fe22b4900ad01c6a9cd2a17cf@o604937.ingest.sentry.io/5744711',
   });
 }
 
@@ -177,8 +176,8 @@ app.on('activate', () => {
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and import them here.
 
-const ElectronGoogleOAuth2 = require('@getstation/electron-google-oauth2')
-  .default;
+const ElectronGoogleOAuth2 =
+  require('@getstation/electron-google-oauth2').default;
 const ytsr = require('ytsr');
 
 const electronOAuth = new ElectronGoogleOAuth2(

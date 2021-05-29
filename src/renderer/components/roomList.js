@@ -67,11 +67,7 @@ function Room({
 
   const roomUsers = useDatabaseObjectData(database.ref(`rooms/${id}/users`));
 
-  const permanent =
-    useDatabaseObjectData(database.ref(`rooms/${id}/permanent`)) === true;
-
   const roomUserCount = Object.keys(roomUsers).length;
-  const showLeaveButton = isInCurrentRoom;
 
   const locked =
     useDatabaseObjectData(database.ref(`rooms/${id}/locked`)) === true;
@@ -85,11 +81,11 @@ function Room({
   return (
     <div
       className={
-        'w-full text-left focus:outline-none p-2 pl-3 mb-2 flex shadow-inner rounded bg-gray-100' +
+        'w-full flex items-center text-left focus:outline-none p-1.5 pl-3 mb-1 rounded' +
         (id === currentRoomId
-          ? ' border border-solid' +
-            (locked ? ' border-red-500' : ' border-teal-700')
-          : ' border hover:bg-gray-200 cursor-pointer')
+          ? ' border border-solid bg-gray-100 ' +
+            (locked ? ' border-red-500' : ' border-transparent')
+          : ' hover:bg-gray-200 cursor-pointer')
       }
       onClick={join}
     >
@@ -105,9 +101,9 @@ function Room({
         </Suspense>
       </div>
 
-      {(locked || isInCurrentRoom) && !permanent ? (
+      {isInCurrentRoom && roomUserCount > 1 ? (
         <button
-          className="self-start focus:outline-none rounded text-gray-700 hover:bg-gray-200 ml-1 px-2 py-1"
+          className="focus:outline-none rounded text-gray-700 hover:bg-gray-200 ml-1 px-2 py-1"
           onClick={toggleLock}
           disabled={!isInCurrentRoom}
         >
@@ -121,12 +117,8 @@ function Room({
         </button>
       ) : null}
 
-      {showLeaveButton ? (
-        <Button
-          className="self-start ml-1"
-          onClick={leaveRoom}
-          disabled={transitioning}
-        >
+      {isInCurrentRoom && roomUserCount > 1 ? (
+        <Button className="ml-1" onClick={leaveRoom} disabled={transitioning}>
           <ExitIcon width={16} height={16} />
         </Button>
       ) : null}
@@ -184,9 +176,9 @@ export function RoomList({
       ))}*/}
       <div className="mb-2 flex items-center">
         <SectionLabel className="flex-1">Rooms</SectionLabel>
-        <Button onClick={createAndJoinRoom} disabled={transitioning}>
+        {/*<Button onClick={createAndJoinRoom} disabled={transitioning}>
           <AddIcon width={16} height={16} />
-        </Button>
+        </Button>*/}
       </div>
       {tempIds.map((id) => (
         <Room

@@ -70,7 +70,7 @@ export function useSocketRoom(socket, connected) {
   const prevRoomState = usePrevious(roomState);
   useEffect(() => {
     if (roomState === RoomState.NONE && socket) {
-      joinRoom(null, prevRoomState === RoomState.NONE);
+      joinRoom(null, false);
     }
   }, [joinRoom, prevRoomState, roomState, socket, uid]);
 
