@@ -133,7 +133,10 @@ export function RoomList({
   leaveRoom,
   connectionStates,
 }) {
+  const uid = useUser().uid;
   const database = useDatabase();
+
+  const friends = useDatabaseObjectData(database.ref('friends').child(uid));
 
   const allRooms = useDatabaseObjectData(database.ref('rooms'));
   const currentRoomLocked = allRooms[currentRoomId]?.locked;

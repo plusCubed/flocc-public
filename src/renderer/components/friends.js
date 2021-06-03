@@ -11,9 +11,7 @@ import { AddFriendIcon, ClockIcon } from './icons';
 export function Friends() {
   const uid = useUser().uid;
   const database = useDatabase();
-  const friendsData = useDatabaseObjectData(
-    database.ref('friendships').child(uid)
-  );
+  const friendsData = useDatabaseObjectData(database.ref('friends').child(uid));
   const friendUids = useMemo(() => Object.keys(friendsData), [friendsData]);
 
   const friendDocs = useDatabaseObjectDataPartial('users', friendUids);
@@ -53,8 +51,8 @@ export function FriendRequests() {
   console.log(requestUserDocs);
 
   const confirmRequest = (otherUid) => {
-    database.ref('friendships').child(uid).child(otherUid).set(true);
-    database.ref('friendships').child(otherUid).child(uid).set(true);
+    database.ref('friends').child(uid).child(otherUid).set(true);
+    database.ref('friends').child(otherUid).child(uid).set(true);
     database.ref('friendRequests').child(uid).child(otherUid).remove();
     database.ref('friendRequests').child(otherUid).child(uid).remove();
   };
@@ -83,9 +81,7 @@ function SearchList({ searchString }) {
   const uid = useUser().uid;
   const database = useDatabase();
 
-  const friendsData = useDatabaseObjectData(
-    database.ref('friendships').child(uid)
-  );
+  const friendsData = useDatabaseObjectData(database.ref('friends').child(uid));
   const friendUids = useMemo(() => Object.keys(friendsData), [friendsData]);
 
   const friendRequests = useDatabaseObjectData(
