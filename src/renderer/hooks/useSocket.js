@@ -22,8 +22,8 @@ export function useSocket(endpoint, user) {
       });
       socket.on('connect_error', async (e) => {
         console.error('Signaling socket error:', e);
-        socket.disconnect();
         if (e.message === 'forbidden') {
+          socket.disconnect();
           setTimeout(async () => {
             console.log('attempt reconnect');
             const idToken = await user.getIdToken(false);

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, Suspense } from 'react';
 import {
   useAuth,
   useDatabase,
@@ -17,6 +17,7 @@ import { Friends, PeopleSearch } from './friends';
 import { SectionLabel } from './ui';
 import { isDevelopment } from '../util/isDevelopment';
 import RoomState from '../../../common/roomState';
+import { FriendsDropdown } from './friendsDropdown';
 
 const SOCKET_ENDPOINT = isDevelopment
   ? 'http://localhost:3010'
@@ -96,6 +97,13 @@ export function Home() {
               )}
             </button>
             <div className="flex-1" />
+            <FriendsDropdown
+              signOut={signOut}
+              inputDevice={inputDevice}
+              outputDevice={outputDevice}
+              setInputDevice={setInputDevice}
+              setOutputDevice={setOutputDevice}
+            />
             <SettingsDropdown
               signOut={signOut}
               inputDevice={inputDevice}
@@ -118,7 +126,6 @@ export function Home() {
             <div className="mt-6 mb-2 flex-1 flex flex-col">
               <SectionLabel>Friends</SectionLabel>
               <Friends />
-              <PeopleSearch />
             </div>
           </div>
           <RoomRtc

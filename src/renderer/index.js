@@ -11,9 +11,7 @@ import '@fontsource/open-sans/700.css';
 
 import { AppWrapper } from './components/app';
 
-ReactDOM.unstable_createRoot(document.getElementById('root')).render(
-  <AppWrapper />
-);
+ReactDOM.createRoot(document.getElementById('root')).render(<AppWrapper />);
 
 if (module.hot) {
   module.hot.accept((err) => {

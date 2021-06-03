@@ -52,7 +52,8 @@ module.exports = {
         chunkFilename: 'main_window/[name].[contenthash:8].chunk.css',
       }),
     new IgnorePlugin({
-      resourceRegExp: /^firebase\/(analytics|firestore|functions|messaging|performance|remote-config|storage)$/,
+      resourceRegExp:
+        /^firebase\/(analytics|firestore|functions|messaging|performance|remote-config|storage)$/,
     }),
   ].filter(Boolean),
   output: { chunkFilename: 'main_window/[name].chunk.js', publicPath: '../' },
