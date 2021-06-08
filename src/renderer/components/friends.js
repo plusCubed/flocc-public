@@ -17,10 +17,13 @@ export function Friends() {
   const friendDocs = useDatabaseObjectDataPartial('users', friendUids);
 
   return (
-    <div>
+    <div className="mb-3">
+      <div className="text-sm font-bold">Friends</div>
       {friendDocs
         ? Object.entries(friendDocs).map(([friendUid, friendDoc]) => (
-            <div key={friendUid}>{friendDoc.displayName}</div>
+            <div key={friendUid} className="text-sm font-normal">
+              {friendDoc.displayName}
+            </div>
           ))
         : null}
     </div>
@@ -48,8 +51,6 @@ export function FriendRequests() {
   const requestUserDocs =
     useDatabaseObjectDataPartial('users', requestUids) || {};
 
-  console.log(requestUserDocs);
-
   const confirmRequest = (otherUid) => {
     database.ref('friends').child(uid).child(otherUid).set(true);
     database.ref('friends').child(otherUid).child(uid).set(true);
@@ -62,14 +63,14 @@ export function FriendRequests() {
       <div className="text-sm font-bold">Requests</div>
       {Object.entries(requestUserDocs).map(([requestUid, requestUserDoc]) => (
         <div key={requestUid} className="flex items-center">
-          <div className="font-normal text-sm">
+          <div className="text-sm font-normal">
             {requestUserDoc.displayName}
           </div>
           <div
             onClick={() => confirmRequest(requestUid)}
             className="focus:outline-none rounded bg-teal-600 hover:bg-teal-700 active:bg-teal-800 self-center p-0.5 ml-1"
           >
-            <AddFriendIcon className="h-5 w-5 text-gray-100" />
+            <AddFriendIcon className="w-5 h-5 text-gray-100" />
           </div>
         </div>
       ))}
@@ -95,7 +96,6 @@ function SearchList({ searchString }) {
     .endAt(searchString + '\uf8ff')
     .limitToFirst(20);
   const results = useDatabaseListData(query, { idField: 'uid' });
-  console.log(results, uid);
   const potentialFriends = results.filter(({ uid: otherUid, displayName }) => {
     // not self, not already friend
     return uid !== otherUid && !friendUids.includes(otherUid);
@@ -110,7 +110,7 @@ function SearchList({ searchString }) {
     <div>
       {potentialFriends?.map(({ uid: otherUid, displayName }) => (
         <div key={otherUid} className="flex items-center">
-          <div className="font-normal text-sm">{displayName}</div>
+          <div className="text-sm font-normal">{displayName}</div>
           {friendRequests[otherUid] !== 'OUTGOING' ? (
             <div
               onClick={() => {
@@ -118,11 +118,11 @@ function SearchList({ searchString }) {
               }}
               className="focus:outline-none rounded text-gray-700 hover:bg-gray-200 active:bg-gray-300 self-center p-0.5 ml-1"
             >
-              <AddFriendIcon className="h-5 w-5 text-gray-600" />
+              <AddFriendIcon className="w-5 h-5 text-gray-600" />
             </div>
           ) : (
             <div className="focus:outline-none rounded text-gray-700 self-center p-0.5 ml-1">
-              <ClockIcon className="h-5 w-5 text-gray-400" />
+              <ClockIcon className="w-5 h-5 text-gray-400" />
             </div>
           )}
         </div>
@@ -148,10 +148,10 @@ export function PeopleSearch() {
 
   return (
     <div>
-      <div className="text-sm font-bold mb-1">Add Friend</div>
-      <div className="rounded bg-gray-100 border-0 mb-1">
+      <div className="mb-1 text-sm font-bold">Add Friend</div>
+      <div className="mb-1 bg-gray-100 rounded border-0">
         <input
-          className="w-full py-1 px-2 flex-1 block text-sm bg-transparent border-0 ring-0 focus:border-0 focus:ring-0"
+          className="block flex-1 py-1 px-2 w-full text-sm bg-transparent border-0 ring-0 focus:border-0 focus:ring-0"
           placeholder="Search"
           type="text"
           value={searchString}

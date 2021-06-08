@@ -5,7 +5,6 @@ import https from 'https';
 import admin from 'firebase-admin';
 import fs from 'fs';
 import serviceAccount from './service-account.json';
-import RoomState from '../common/roomState.js';
 
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
@@ -54,10 +53,18 @@ async function cleanUpRooms() {
 }
 cleanUpRooms().then();
 
+function info(obj) {
+  console.info(new Date().toISOString(), obj);
+}
+
+function log(obj) {
+  console.log(new Date().toISOString(), obj);
+}
+
 // Get PORT from env variable else assign 3000 for development
 const PORT = isDevelopment ? process.env.PORT || 3010 : 8443;
 httpServer.listen(PORT, null, function () {
-  console.log('Listening on port ' + PORT);
+  log('Listening on port ' + PORT);
 });
 
 /**
@@ -94,7 +101,7 @@ function getPeersInRoom(socket, room) {
  * @returns {Promise<void>}
  */
 function leaveRoom(socket, room) {
-  console.log(`[${socket.id}] leave room ${room}`);
+  log(`[${socket.id}] leave room ${room}`);
   const uid = socket.user.uid;
 
   // tell peers to remove this
@@ -118,13 +125,15 @@ function leaveRoom(socket, room) {
   return (async () => {
     try {
       await database.ref(`rooms/${room}/users/${uid}`).remove();
+      await database.ref(`users/${uid}/room`).set('');
       // Delete room if no users left
       const roomDoc = (await database.ref(`rooms/${room}`).once('value')).val();
-      if (!roomDoc.users && !roomDoc.permanent) {
+      if (roomDoc && !roomDoc.users && !roomDoc.permanent) {
         await deleteFirebaseRoom(room);
       }
-      await database.ref(`users/${uid}/room`).set('');
-    } catch (ignored) {}
+    } catch (e) {
+      console.error(e);
+    }
   })();
 }
 
@@ -134,7 +143,7 @@ function leaveRoom(socket, room) {
 async function leaveAllRoomsAsync(socket) {
   const rooms = getRooms(socket);
   if (rooms.length > 0) {
-    console.log(`[${socket.id}] leaving all rooms`);
+    log(`[${socket.id}] leaving all rooms`);
     await Promise.all(rooms.map((room) => leaveRoom(socket, room)));
   }
 }
@@ -145,7 +154,7 @@ async function leaveAllRoomsAsync(socket) {
 function leaveAllRooms(socket) {
   const rooms = getRooms(socket);
   if (rooms.length > 0) {
-    console.log(`[${socket.id}] leaving all rooms`);
+    log(`[${socket.id}] leaving all rooms`);
     for (const room of rooms) {
       leaveRoom(socket, room).then();
     }
@@ -155,35 +164,71 @@ function leaveAllRooms(socket) {
 io.use(async (socket, next) => {
   const { idToken } = socket.handshake.query;
   try {
-    console.log(`[${socket.id}] verifying id token`);
+    log(`[${socket.id}] verifying id token`);
     socket.user = await admin.auth().verifyIdToken(idToken);
     const uid = socket.user.uid;
     if (uid in uidToSocket) {
-      console.log(
+      log(
         `[${socket.id}] uid already connected, kicking ${uidToSocket[uid].id}`
       );
       uidToSocket[uid].disconnect(true);
     }
     uidToSocket[uid] = socket;
-    console.log(`[${socket.id}] token verified`);
+    log(`[${socket.id}] token verified`);
     next();
   } catch (e) {
     next(new Error('forbidden'));
   }
 });
 
+const joinRoom = async (room, locked, socket, uid) => {
+  if (room in socket.rooms) {
+    return; // Already joined
+  }
+  await leaveAllRoomsAsync(socket);
+
+  if (!room) {
+    const roomRef = await database.ref(`rooms`).push({ locked: !!locked });
+    room = roomRef.key;
+  }
+  await database.ref(`rooms/${room}/users/${uid}`).set(true);
+  await database.ref(`users/${uid}/room`).set(room);
+
+  socket.join(room);
+  socket.emit(`joined`, { room });
+
+  // tell peers to add this
+  log(`[room ${room}] add peer`, socket.id);
+  socket.to(room).emit('addPeer', {
+    peerSocketId: socket.id,
+    peerUid: uid,
+  });
+
+  // tell this to add each peer
+  const peers = getPeersInRoom(socket, room);
+  for (const peerSocket of peers) {
+    log(`[${socket.id}] add peer`, peerSocket.id);
+    socket.emit('addPeer', {
+      peerSocketId: peerSocket.id,
+      peerUid: peerSocket.user.uid,
+    });
+  }
+};
+
 io.on('connection', (socket) => {
   const uid = socket.user.uid;
 
   // const socketHostName = socket.handshake.headers.host.split(':')[0];
-  console.log(`[${socket.id}] event:connection`);
+  log(`[${socket.id}] event:connection`);
+  database.ref(`users/${uid}/status`).set('IDLE');
 
   socket.on('disconnect', () => {
-    console.log(`[${socket.id}] event:disconnect`);
+    log(`[${socket.id}] event:disconnect`);
+    database.ref(`users/${uid}/status`).set('OFFLINE');
   });
 
   socket.on('disconnecting', () => {
-    console.log(`[${socket.id}] event:disconnecting`);
+    log(`[${socket.id}] event:disconnecting`);
     if (
       socket.user.uid in uidToSocket &&
       uidToSocket[socket.user.uid].id === socket.id
@@ -191,66 +236,76 @@ io.on('connection', (socket) => {
       delete uidToSocket[socket.user.uid];
     }
     leaveAllRooms(socket);
-    database.ref(`users/${uid}/roomState`).set(RoomState.NONE);
   });
 
+  socket.on('active', () => {
+    database.ref(`users/${uid}/status`).set('ACTIVE');
+  });
+
+  socket.on('idle', () => {
+    database.ref(`users/${uid}/status`).set('IDLE');
+  });
+
+  // socket.on('call', async (msg) => {
+  //   log(`[${socket.id}] event:call `, msg);
+  //   // TODO: verify peerUid is friend
+  //
+  //   let { peerUid } = msg;
+  //   if (!(peerUid in uidToSocket)) {
+  //     console.error(`[${socket.id}] call failed, invalid peerUid`, peerUid);
+  //     return;
+  //   }
+  //   const peerSocket = uidToSocket[peerUid];
+  //
+  //   // Check peer not in existing room
+  //   if (getRooms(peerSocket).length > 0) {
+  //     console.error(`[${socket.id}] call failed, peer already in room`);
+  //     return;
+  //   }
+  //
+  //   const roomRef = await database.ref(`rooms`).push({});
+  //   const room = roomRef.key;
+  //   await joinRoom(room, false, socket, uid);
+  //   await joinRoom(room, false, peerSocket, peerUid);
+  // });
+
   socket.on('join', async (msg) => {
-    console.log(`[${socket.id}] event:join `, msg);
-    let { room, locked } = msg;
-    if (room in socket.rooms) {
-      return; // Already joined
-    }
-    await leaveAllRoomsAsync(socket);
-
-    if (!room) {
-      const roomRef = await database.ref(`rooms`).push({ locked: !!locked });
-      room = roomRef.key;
-    }
-    database.ref(`rooms/${room}/users/${uid}`).set(true).then();
-    database.ref(`users/${uid}/room`).set(room).then();
-    database.ref(`users/${uid}/roomState`).set(RoomState.JOINED).then();
-
-    socket.join(room);
-    socket.emit(`joined`, { room });
-
-    // tell peers to add this
-    console.log(`[${room}] add peer`, socket.id);
-    socket.to(room).emit('addPeer', {
-      peerSocketId: socket.id,
-      peerUid: uid,
-    });
-
-    // tell this to add each peer
-    const peers = getPeersInRoom(socket, room);
-    for (const peerSocket of peers) {
-      console.log(`[${socket.id}] add peer`, peerSocket.id);
-      socket.emit('addPeer', {
-        peerSocketId: peerSocket.id,
-        peerUid: peerSocket.user.uid,
-      });
+    log(`[${socket.id}] event:join `, msg);
+    const { room, locked } = msg;
+    try {
+      await joinRoom(room, locked, socket, uid);
+    } catch (e) {
+      console.error(e);
     }
   });
 
   socket.on('leave', async () => {
-    console.log(`[${socket.id}] event:leave`);
-    await leaveAllRoomsAsync(socket);
-    await database.ref(`users/${uid}/roomState`).set(RoomState.NONE);
+    log(`[${socket.id}] event:leave`);
+    try {
+      await leaveAllRoomsAsync(socket);
+    } catch (e) {
+      console.error(e);
+    }
     socket.emit('left');
   });
 
   socket.on('signal', (msg) => {
-    const { peerUid, data } = msg;
-    const peerSocket = uidToSocket[peerUid];
-    if (!peerSocket) {
-      console.error(`[${socket.id}] signal failed, invalid peerUid`, peerUid);
-      return;
-    }
-    console.log(`[${socket.id}] signal to [${peerSocket.id}]`);
+    try {
+      const { peerUid, data } = msg;
+      const peerSocket = uidToSocket[peerUid];
+      if (!peerSocket) {
+        console.error(`[${socket.id}] signal failed, invalid peerUid`, peerUid);
+        return;
+      }
+      info(`[${socket.id}] signal to [${peerSocket.id}]`);
 
-    socket.to(peerSocket.id).emit('signal', {
-      peerSocketId: socket.id,
-      peerUid: uid,
-      data,
-    });
+      socket.to(peerSocket.id).emit('signal', {
+        peerSocketId: socket.id,
+        peerUid: uid,
+        data,
+      });
+    } catch (e) {
+      console.error(e);
+    }
   });
 });

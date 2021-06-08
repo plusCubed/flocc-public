@@ -13,11 +13,9 @@ import { Music } from './music';
 import { useSocketRoom } from '../hooks/useSocketRoom';
 import { SettingsDropdown } from './settingsDropdown';
 import { MatMicrophoneIcon, MatMicrophoneOffIcon } from './icons';
-import { Friends, PeopleSearch } from './friends';
-import { SectionLabel } from './ui';
 import { isDevelopment } from '../util/isDevelopment';
-import RoomState from '../../../common/roomState';
 import { FriendsDropdown } from './friendsDropdown';
+import { StatusIndicator } from './statusIndicator';
 
 const SOCKET_ENDPOINT = isDevelopment
   ? 'http://localhost:3010'
@@ -36,31 +34,56 @@ export function Home() {
   const [outputDevice, setOutputDevice] = useState('');
 
   const { socket, connected } = useSocket(SOCKET_ENDPOINT, user);
-
-  const { roomId, roomState, joinRoom, leaveRoom } = useSocketRoom(
+  const { roomId, joinRoom, leaveRoom, transitioningRef } = useSocketRoom(
     socket,
     connected
   );
 
   useEffect(() => {
+    let timeoutId = null;
     const onfocus = function (event) {
       console.log('focus');
-      /*if (roomState === RoomState.NONE) {
-        joinRoom(null, true).then();
-      }*/
+      if (!socket) return;
+
+      socket.emit('active');
+      if (!roomId && !transitioningRef.current) {
+        console.log('joining new room on focus');
+        joinRoom(null, false);
+      }
+
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
     };
 
     const onblur = function (event) {
       console.log('blur');
+      if (!socket) return;
+
+      if (!roomId) {
+        // not in a room => idle in 5 min
+        timeoutId = setTimeout(() => {
+          console.log('idle');
+          socket.emit('idle');
+        }, 5 * 60 * 1000); // 5 min
+      }
     };
+
+    if (document.hasFocus()) {
+      onfocus();
+    } else {
+      onblur();
+    }
 
     window.addEventListener('focus', onfocus);
     window.addEventListener('blur', onblur);
     return () => {
       window.removeEventListener('focus', onfocus);
       window.removeEventListener('blur', onblur);
+      if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [joinRoom, roomState]);
+  }, [joinRoom, roomId, socket, transitioningRef]);
 
   const auth = useAuth();
   const signOut = useCallback(async () => {
@@ -76,18 +99,21 @@ export function Home() {
     muteRef.set(!mute).then();
   }, [mute, muteRef]);
 
+  const status = useDatabaseObjectData(database.ref(`users/${uid}/status`));
+
   return (
-    <div className="w-full h-full p-2 max-w-lg mx-auto">
+    <div className="p-2 mx-auto w-full max-w-lg h-full">
       {!connected ? (
-        <div className="w-full h-full flex items-center justify-center">
+        <div className="flex justify-center items-center w-full h-full">
           Connecting to server...
         </div>
       ) : (
-        <div className="w-full h-full flex flex-col">
-          <div className="font-semibold flex items-center">
+        <div className="flex flex-col w-full h-full">
+          <div className="flex items-center font-semibold">
             <div>{displayName}</div>
+            <StatusIndicator status={status} className="ml-1" />
             <button
-              className="relative focus:outline-none rounded text-gray-700 hover:bg-gray-200 ml-1 p-1"
+              className="relative p-1 ml-1 text-gray-700 rounded focus:outline-none hover:bg-gray-200"
               onClick={toggleMute}
             >
               {mute ? (
@@ -112,20 +138,14 @@ export function Home() {
               setOutputDevice={setOutputDevice}
             />
           </div>
-          <div className="overflow-y-auto flex-1 flex flex-col">
+          <div className="flex overflow-y-auto flex-col flex-1">
             <div className="flex-1 mt-2">
               <RoomList
                 currentRoomId={roomId}
-                currentRoomState={roomState}
                 joinRoom={joinRoom}
                 leaveRoom={leaveRoom}
                 connectionStates={connectionStates}
               />
-            </div>
-
-            <div className="mt-6 mb-2 flex-1 flex flex-col">
-              <SectionLabel>Friends</SectionLabel>
-              <Friends />
             </div>
           </div>
           <RoomRtc

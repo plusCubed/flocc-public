@@ -1,18 +1,9 @@
 import { useDatabase, useDatabaseObjectData, useUser } from 'reactfire';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePrevious } from './usePrev';
-import RoomState from '../../../common/roomState';
 
 function isString(obj) {
   return typeof obj === 'string' || obj instanceof String;
-}
-
-function useRoomState() {
-  const database = useDatabase();
-  const uid = useUser().uid;
-  const roomStateRef = database.ref(`users/${uid}/roomState`);
-  const roomStateObjectData = useDatabaseObjectData(roomStateRef);
-  return isString(roomStateObjectData) ? roomStateObjectData : RoomState.NONE;
 }
 
 function useRoomId() {
@@ -28,51 +19,77 @@ export function useSocketRoom(socket, connected) {
   const uid = useUser().uid;
 
   const roomId = useRoomId();
-  const roomState = useRoomState();
-  const transitioning =
-    roomState === RoomState.JOINING || roomState === RoomState.LEAVING;
 
-  const roomStateRef = database.ref(`users/${uid}/roomState`);
+  const transitioningRef = useRef(false);
 
   const joinRoom = useCallback(
     async (id, locked) => {
       if (!socket) return;
-      if (transitioning) return;
-      if (id === roomId) return; // already in this room
+      if (transitioningRef.current) return;
+      if (id && id === roomId) return; // already in this room
+
+      transitioningRef.current = true;
 
       // create room if id is null
       console.info('Joining room', id);
-      roomStateRef.set(RoomState.JOINING);
       socket.emit('join', { room: id, locked });
+      socket.once('joined', () => {
+        transitioningRef.current = false;
+      });
     },
-    [roomId, roomStateRef, socket, transitioning]
+    [roomId, socket]
   );
 
+  /*const call = useCallback(
+    (peerUid) => {
+      if (!socket) return;
+      console.info('Calling', peerUid);
+      socket.emit('call', { peerUid });
+    },
+    [socket]
+  );
+*/
   const leaveRoom = useCallback(async () => {
-    if (transitioning) return;
+    if (!socket) return;
+    if (transitioningRef.current) return;
 
-    // assume connected
+    transitioningRef.current = true;
+
     console.info('Leaving room', roomId);
-    roomStateRef.set(RoomState.LEAVING);
-    socket?.emit('leave');
-  }, [transitioning, roomId, roomStateRef, socket]);
+    socket.emit('leave');
+    socket.once('left', () => {
+      transitioningRef.current = false;
+    });
+  }, [roomId, socket]);
 
   const prevConnected = usePrevious(connected);
   useEffect(() => {
     if (!socket) return;
+    if (transitioningRef.current) return;
 
     // resume connection to room after losing connection
     if (!prevConnected && connected && roomId) {
+      console.log('reconnecting to room', roomId);
+
+      transitioningRef.current = true;
       socket.emit('join', { room: roomId });
+      socket.once('joined', () => {
+        transitioningRef.current = false;
+      });
     }
   }, [connected, database, prevConnected, roomId, socket, uid]);
 
-  const prevRoomState = usePrevious(roomState);
+  /*const prevRoomState = usePrevious(roomState);
   useEffect(() => {
     if (roomState === RoomState.NONE && socket) {
       joinRoom(null, false);
     }
-  }, [joinRoom, prevRoomState, roomState, socket, uid]);
+  }, [joinRoom, prevRoomState, roomState, socket, uid]);*/
 
-  return { roomId, roomState, joinRoom, leaveRoom };
+  return {
+    roomId,
+    joinRoom,
+    leaveRoom,
+    transitioningRef,
+  };
 }

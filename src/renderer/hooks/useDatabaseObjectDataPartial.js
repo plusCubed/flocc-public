@@ -27,10 +27,17 @@ export function useDatabaseObjectDataPartial(path, childKeys) {
 
     for (const childKey of childKeys) {
       listeners[childKey] = (snapshot) => {
-        setObjectData((objectData) => ({
-          ...objectData,
-          [snapshot.key]: snapshot.val(),
-        }));
+        setObjectData((objectData) => {
+          const value = snapshot.val();
+          if (value) {
+            return {
+              ...objectData,
+              [snapshot.key]: snapshot.val(),
+            };
+          } else {
+            return objectData;
+          }
+        });
       };
       database.ref(path).child(childKey).on('value', listeners[childKey]);
     }

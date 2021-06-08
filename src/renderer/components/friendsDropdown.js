@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { Transition } from '@headlessui/react';
 import { FriendsIcon } from './icons';
-import { FriendRequests, PeopleSearch } from './friends';
+import { FriendRequests, Friends, PeopleSearch } from './friends';
 
 export function FriendsDropdown({}) {
   const [open, setOpen] = useState(false);
@@ -50,6 +50,7 @@ export function FriendsDropdown({}) {
       >
         <div className="absolute right-0 w-64 mt-2 origin-top-right bg-white border border-gray-200 rounded-md shadow-lg outline-none p-4">
           <FriendRequests />
+          <Friends />
           <PeopleSearch />
         </div>
       </Transition>
