@@ -37,21 +37,29 @@ async function deleteFirebaseRoom(room) {
   await database.ref(`musicSync/${room}`).remove();
 }
 
-async function cleanUpRooms() {
+async function cleanUp() {
   const rooms = (await database.ref('rooms').once('value')).val();
-  if (!rooms) return;
-  for (const [room, roomDoc] of Object.entries(rooms)) {
-    // Delete temporary rooms
-    if (!roomDoc.permanent) {
-      await deleteFirebaseRoom(room);
+  if (rooms) {
+    for (const [room, roomDoc] of Object.entries(rooms)) {
+      // Delete temporary rooms
+      if (!roomDoc.permanent) {
+        await deleteFirebaseRoom(room);
+      }
+      // Clear users from permanent rooms
+      if (roomDoc.permanent) {
+        await database.ref(`rooms/${room}/users`).remove();
+      }
     }
-    // Clear users from permanent rooms
-    if (roomDoc.permanent) {
-      await database.ref(`rooms/${room}/users`).remove();
+  }
+  const users = (await database.ref('users').once('value')).val();
+  if (users) {
+    for (const [userId, userDoc] of Object.entries(users)) {
+      await database.ref(`users/${userId}/room`).set('');
+      await database.ref(`users/${userId}/status`).set('OFFLINE');
     }
   }
 }
-cleanUpRooms().then();
+await cleanUp();
 
 function info(obj) {
   console.info(new Date().toISOString(), obj);
@@ -175,12 +183,22 @@ io.use(async (socket, next) => {
     }
     uidToSocket[uid] = socket;
     log(`[${socket.id}] token verified`);
+
+    // set displayName in RTDB
+    admin
+      .auth()
+      .getUser(uid)
+      .then((user) => {
+        return database.ref(`users/${uid}/displayName`).set(user.displayName);
+      })
+      .catch((e) => console.error(e));
     next();
   } catch (e) {
     next(new Error('forbidden'));
   }
 });
 
+// create new room if room is null
 const joinRoom = async (room, locked, socket, uid) => {
   if (room in socket.rooms) {
     return; // Already joined
@@ -190,6 +208,7 @@ const joinRoom = async (room, locked, socket, uid) => {
   if (!room) {
     const roomRef = await database.ref(`rooms`).push({ locked: !!locked });
     room = roomRef.key;
+    await database.ref(`users/${uid}/mute`).set(true);
   }
   await database.ref(`rooms/${room}/users/${uid}`).set(true);
   await database.ref(`users/${uid}/room`).set(room);
@@ -239,35 +258,21 @@ io.on('connection', (socket) => {
   });
 
   socket.on('active', () => {
+    log(`[${socket.id}] event:active`);
     database.ref(`users/${uid}/status`).set('ACTIVE');
   });
 
-  socket.on('idle', () => {
-    database.ref(`users/${uid}/status`).set('IDLE');
+  socket.on('idle', async () => {
+    log(`[${socket.id}] event:idle`);
+    await database.ref(`users/${uid}/status`).set('IDLE');
   });
 
-  // socket.on('call', async (msg) => {
-  //   log(`[${socket.id}] event:call `, msg);
-  //   // TODO: verify peerUid is friend
-  //
-  //   let { peerUid } = msg;
-  //   if (!(peerUid in uidToSocket)) {
-  //     console.error(`[${socket.id}] call failed, invalid peerUid`, peerUid);
-  //     return;
-  //   }
-  //   const peerSocket = uidToSocket[peerUid];
-  //
-  //   // Check peer not in existing room
-  //   if (getRooms(peerSocket).length > 0) {
-  //     console.error(`[${socket.id}] call failed, peer already in room`);
-  //     return;
-  //   }
-  //
-  //   const roomRef = await database.ref(`rooms`).push({});
-  //   const room = roomRef.key;
-  //   await joinRoom(room, false, socket, uid);
-  //   await joinRoom(room, false, peerSocket, peerUid);
-  // });
+  socket.on('toggle_mute', async () => {
+    log(`[${socket.id}] event:toggle_mute`);
+    await database.ref(`users/${uid}/mute`).transaction((value) => {
+      return !value;
+    });
+  });
 
   socket.on('join', async (msg) => {
     log(`[${socket.id}] event:join `, msg);

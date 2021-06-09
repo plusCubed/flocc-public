@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState, Suspense } from 'react';
 import {
   useAuth,
   useDatabase,
+  useDatabaseListData,
   useDatabaseObjectData,
   useUser,
 } from 'reactfire';
@@ -26,10 +27,6 @@ export function Home() {
   const user = useUser();
   const { displayName, email, photoURL, uid } = user;
 
-  useEffect(() => {
-    database.ref(`users/${uid}/displayName`).set(displayName);
-  }, [database, displayName, uid]);
-
   const [inputDevice, setInputDevice] = useState('');
   const [outputDevice, setOutputDevice] = useState('');
 
@@ -41,7 +38,7 @@ export function Home() {
 
   useEffect(() => {
     let timeoutId = null;
-    const onfocus = function (event) {
+    const onfocus = (event) => {
       console.log('focus');
       if (!socket) return;
 
@@ -57,15 +54,20 @@ export function Home() {
       }
     };
 
-    const onblur = function (event) {
+    const onblur = async (event) => {
       console.log('blur');
       if (!socket) return;
 
-      if (!roomId) {
+      const roomUserCount = (
+        await database.ref(`rooms/${roomId}/users`).once('value')
+      ).numChildren();
+
+      if (roomUserCount === 1) {
         // not in a room => idle in 5 min
         timeoutId = setTimeout(() => {
           console.log('idle');
           socket.emit('idle');
+          leaveRoom().catch((e) => console.error(e));
         }, 5 * 60 * 1000); // 5 min
       }
     };
@@ -83,7 +85,7 @@ export function Home() {
       window.removeEventListener('blur', onblur);
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [joinRoom, roomId, socket, transitioningRef]);
+  }, [database, joinRoom, leaveRoom, roomId, socket, transitioningRef]);
 
   const auth = useAuth();
   const signOut = useCallback(async () => {
@@ -93,11 +95,10 @@ export function Home() {
 
   const [connectionStates, setConnectionStates] = useState({});
 
-  const muteRef = database.ref(`users/${uid}/mute`);
-  const mute = useDatabaseObjectData(muteRef);
+  const mute = useDatabaseObjectData(database.ref(`users/${uid}/mute`));
   const toggleMute = useCallback(() => {
-    muteRef.set(!mute).then();
-  }, [mute, muteRef]);
+    socket.emit('toggle_mute');
+  }, [socket]);
 
   const status = useDatabaseObjectData(database.ref(`users/${uid}/status`));
 

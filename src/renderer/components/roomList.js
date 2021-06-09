@@ -154,7 +154,6 @@ function User({ userId, callFriend, status }) {
 
 export function RoomList({
   currentRoomId,
-  //call,
   joinRoom,
   leaveRoom,
   connectionStates,
@@ -188,22 +187,16 @@ export function RoomList({
   const friendRooms =
     useDatabaseObjectDataPartial('rooms', friendRoomIds) || {};
   const currentRoomLocked = friendRooms[currentRoomId]?.locked;
-  let tempIds = [];
+  let tempRoomIds = [];
 
   for (const [id, roomData] of Object.entries(friendRooms)) {
     if (id === currentRoomId) {
-      tempIds.splice(0, 0, id);
+      tempRoomIds.splice(0, 0, id);
     } else if (!roomData.locked && !currentRoomLocked) {
-      tempIds.push(id);
+      tempRoomIds.push(id);
     }
   }
 
-  /*const activeFriends = friendDocEntries
-    .filter((entry) => !isFriendInARoom(entry))
-    .filter(([friendUid, friendDoc]) => {
-      return friendDoc.status === 'ACTIVE';
-    })
-    .map(([friendUid, friendDoc]) => friendUid);*/
   const inactiveFriends = friendDocEntries
     .filter((entry) => !isFriendInARoom(entry))
     .filter(([friendUid, friendDoc]) => {
@@ -219,37 +212,22 @@ export function RoomList({
           <AddIcon width={16} height={16} />
         </Button>*/}
       </div>
-      {tempIds.map((id) => (
+      {tempRoomIds.map((roomId) => (
         <Room
-          key={id}
-          roomId={id}
+          key={roomId}
+          roomId={roomId}
           currentRoomId={currentRoomId}
           connectionStates={connectionStates}
           leaveRoom={leaveRoom}
           joinRoom={joinRoom}
         />
       ))}
-      {/*{activeFriends.map((friendUid) => (
-        <Suspense key={friendUid} fallback={<div>Loading</div>}>
-          <User
-            userId={friendUid}
-            callFriend={call}
-            status={friendDocs[friendUid].status}
-          />
-        </Suspense>
-      ))}*/}
       <SectionLabel className="flex-1 mt-4">Inactive</SectionLabel>
       {inactiveFriends.map((friendUid) => (
         <Suspense key={friendUid} fallback={<div>Loading</div>}>
           <User userId={friendUid} status={friendDocs[friendUid].status} />
         </Suspense>
       ))}
-      {/*{currentRoomLocked ? (*/}
-      {/*  <div className="text-center text-gray-400">*/}
-      {/*    <div>Unlock to join friend rooms,</div>*/}
-      {/*    <div>and let friends join yours!</div>*/}
-      {/*  </div>*/}
-      {/*) : null}*/}
     </div>
   );
 }
