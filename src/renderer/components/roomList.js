@@ -17,8 +17,9 @@ function RoomUsers({ currentRoomId, roomId, roomUsers, connectionStates }) {
   const currentUid = useUser().uid;
 
   return userIds.map((uid) => {
+    const isCurrentRoom = roomId === currentRoomId;
     const connecting =
-      roomId === currentRoomId &&
+      isCurrentRoom &&
       currentUid !== uid &&
       connectionStates[uid] !== 'connected';
     const nameClass = connecting ? 'text-gray-500' : '';
@@ -30,7 +31,7 @@ function RoomUsers({ currentRoomId, roomId, roomUsers, connectionStates }) {
           {userDoc?.displayName ?? '...'}
         </div>
         <div className="text-gray-500">
-          {userDoc?.mute ? (
+          {isCurrentRoom && userDoc?.mute ? (
             <MatMicrophoneOffIcon width={18} height={18} />
           ) : null}
         </div>
