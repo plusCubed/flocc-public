@@ -4,6 +4,7 @@ import http from 'http';
 import https from 'https';
 import admin from 'firebase-admin';
 import fs from 'fs';
+import packageJson from './package.json';
 import serviceAccount from './service-account.json';
 
 const isDevelopment = process.env.NODE_ENV !== 'production';
@@ -168,6 +169,18 @@ function leaveAllRooms(socket) {
     }
   }
 }
+
+io.use(async (socket, next) => {
+  const { version } = socket.handshake.query;
+  if (version === packageJson.version) {
+    next();
+  } else {
+    log(
+      `Wrong protocol version: ${packageJson.version} required, requested ${version}`
+    );
+    next(new Error('protocol_version'));
+  }
+});
 
 io.use(async (socket, next) => {
   const { idToken } = socket.handshake.query;

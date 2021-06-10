@@ -11,7 +11,10 @@ export function useSocket(endpoint, user) {
     async function connectSocket() {
       const idToken = await user.getIdToken(true);
       if (ignore) return;
-      socket = io(endpoint, { query: { idToken }, transports: ['websocket'] });
+      socket = io(endpoint, {
+        query: { idToken, version: '3' },
+        transports: ['websocket'],
+      });
       socket.on('connect', () => {
         console.log('Connected to signaling server');
         setConnected(true);
