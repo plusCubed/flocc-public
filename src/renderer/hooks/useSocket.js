@@ -25,14 +25,23 @@ export function useSocket(endpoint, user) {
       });
       socket.on('connect_error', async (e) => {
         console.error('Signaling socket error:', e);
-        if (e.message === 'forbidden') {
-          socket.disconnect();
-          setTimeout(async () => {
-            console.log('attempt reconnect');
-            const idToken = await user.getIdToken(false);
-            socket.io.opts.query = { idToken };
-            socket.connect();
-          }, 1000);
+        switch (e.message) {
+          case 'forbidden': {
+            socket.disconnect();
+            setTimeout(async () => {
+              console.log('attempt reconnect');
+              const idToken = await user.getIdToken(false);
+              socket.io.opts.query = { idToken };
+              socket.connect();
+            }, 1000);
+            break;
+          }
+          case 'protocol_version': {
+            alert('Update required');
+            break;
+          }
+          default:
+            break;
         }
       });
       setSocket(socket);
