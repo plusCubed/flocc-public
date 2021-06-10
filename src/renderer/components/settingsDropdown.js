@@ -1,18 +1,20 @@
 import React, { useCallback, useState } from 'react';
-import { Transition } from '@headlessui/react';
-import { Button } from './ui';
-import { AudioSelector } from './audioSelector';
-import isElectron from 'is-electron';
-import { MicrophoneIcon, SettingsIcon, SpeakerIcon } from './icons';
 
-export function SettingsDropdown({
-  signOut,
-  inputDevice,
-  outputDevice,
-  setInputDevice,
-  setOutputDevice,
-}) {
+import { Transition } from '@headlessui/react';
+import isElectron from 'is-electron';
+import { useRecoilState } from 'recoil';
+
+import { audioInputAtom, audioOutputAtom } from '../atoms/audioDeviceAtom';
+
+import { AudioSelector } from './audioSelector';
+import { MicrophoneIcon, SettingsIcon, SpeakerIcon } from './icons';
+import { Button } from './ui';
+
+export function SettingsDropdown({ signOut }) {
   const [open, setOpen] = useState(false);
+
+  const [inputDevice, setInputDevice] = useRecoilState(audioInputAtom);
+  const [outputDevice, setOutputDevice] = useRecoilState(audioOutputAtom);
 
   const toggle = useCallback(() => {
     setOpen((open) => !open);

@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
+
 import { useDatabase } from 'reactfire';
 
 /**
  * @param {string} path
  * @param {[string]} childKeys
- * @returns {Object.<string, Object> | null}
+ * @returns {Object.<string, Object>}
  */
 export function useDatabaseObjectDataPartial(path, childKeys) {
-  const [objectData, setObjectData] = useState(null);
+  const [objectData, setObjectData] = useState({});
 
   const database = useDatabase();
   useEffect(() => {
@@ -18,7 +19,7 @@ export function useDatabaseObjectDataPartial(path, childKeys) {
       if (objectData === null) return null;
       const newObjectData = {};
       for (const key of Object.keys(objectData)) {
-        if (key in childKeys) {
+        if (childKeys.includes(key)) {
           newObjectData[key] = objectData[key];
         }
       }
@@ -32,7 +33,7 @@ export function useDatabaseObjectDataPartial(path, childKeys) {
           if (value) {
             return {
               ...objectData,
-              [snapshot.key]: snapshot.val(),
+              [snapshot.key]: value,
             };
           } else {
             return objectData;

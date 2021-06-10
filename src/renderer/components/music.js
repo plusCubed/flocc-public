@@ -5,16 +5,19 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import ReactPlayer from 'react-player/youtube';
+
 import isElectron from 'is-electron';
+import ReactPlayer from 'react-player/youtube';
 import {
   useDatabase,
   useDatabaseListData,
   useDatabaseObjectData,
 } from 'reactfire';
-import { usePrevious } from '../hooks/usePrev';
-import { Button } from './ui';
+
+import { usePrevious } from '../hooks/usePrevious';
+
 import { MusicIcon, SkipNextIcon } from './icons';
+import { Button } from './ui';
 
 export function Music({ currentRoomId }) {
   const config = useMemo(() => {

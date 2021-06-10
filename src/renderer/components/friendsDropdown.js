@@ -1,7 +1,9 @@
 import React, { useCallback, useState } from 'react';
+
 import { Transition } from '@headlessui/react';
-import { FriendsIcon } from './icons';
+
 import { FriendRequests, Friends, PeopleSearch } from './friends';
+import { FriendsIcon } from './icons';
 
 export function FriendsDropdown({}) {
   const [open, setOpen] = useState(false);

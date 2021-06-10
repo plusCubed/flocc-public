@@ -1,8 +1,11 @@
-import { useAuth } from 'reactfire';
 import React, { useCallback } from 'react';
+
 import isElectron from 'is-electron';
+import { useAuth } from 'reactfire';
+
+import Icon from '../assets/icon.png';
+
 import { Button } from './ui';
-import Icon from '../../assets/icon.png';
 
 export function SignInForm() {
   const auth = useAuth();

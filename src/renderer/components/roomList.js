@@ -1,57 +1,77 @@
 import React, { Suspense, useCallback, useMemo } from 'react';
+
 import { useDatabase, useDatabaseObjectData, useUser } from 'reactfire';
-import { Button, SectionLabel } from './ui';
+import { useRecoilValue } from 'recoil';
+
+import joinedSound from '../assets/sounds/joined.wav';
+import leftSound from '../assets/sounds/left.wav';
+import { audioOutputAtom } from '../atoms/audioDeviceAtom';
+import { useDatabaseObjectDataPartial } from '../hooks/useDatabaseObjectDataPartial';
+import { playSound } from '../util/playSound';
+
 import {
   ExitIcon,
   LockClosedIcon,
   LockOpenIcon,
   MatMicrophoneOffIcon,
 } from './icons';
-import { useDatabaseObjectDataPartial } from '../hooks/useDatabaseObjectDataPartial';
 import { StatusIndicator } from './statusIndicator';
+import { Button, SectionLabel } from './ui';
 
-function RoomUsers({ currentRoomId, roomId, roomUsers, connectionStates }) {
+function RoomUser({ currentRoomId, roomId, uid, connectionState }) {
   const database = useDatabase();
-  const userIds = useMemo(() => Object.keys(roomUsers), [roomUsers]);
-  const userDocs = useDatabaseObjectDataPartial('users', userIds);
   const currentUid = useUser().uid;
 
-  return userIds.map((uid) => {
-    const isCurrentRoom = roomId === currentRoomId;
-    const connecting =
-      isCurrentRoom &&
-      currentUid !== uid &&
-      connectionStates[uid] !== 'connected';
-    const nameClass = connecting ? 'text-gray-500' : '';
-    const userDoc = userDocs?.[uid];
-    return (
-      <div key={uid} className="flex items-center">
-        <StatusIndicator status={userDoc?.status} />
-        <div className={'text-sm px-1 ' + nameClass}>
-          {userDoc?.displayName ?? '...'}
-        </div>
-        <div className="text-gray-500">
-          {isCurrentRoom && userDoc?.mute ? (
-            <MatMicrophoneOffIcon width={18} height={18} />
-          ) : null}
-        </div>
+  const isCurrentRoom = roomId && roomId === currentRoomId;
+  const connecting =
+    isCurrentRoom && currentUid !== uid && connectionState !== 'connected';
+  const nameClass = connecting ? 'text-gray-500' : '';
+
+  const userDoc = useDatabaseObjectData(database.ref(`users/${uid}`));
+
+  return (
+    <div className="flex items-center h-6">
+      <StatusIndicator status={userDoc?.status} />
+      <div className={'px-2 ' + nameClass}>{userDoc?.displayName ?? '...'}</div>
+      <div className="text-gray-500">
+        {isCurrentRoom && userDoc?.mute ? (
+          <MatMicrophoneOffIcon width={18} height={18} />
+        ) : null}
       </div>
-    );
-  });
+    </div>
+  );
 }
 
-function Room({
-  roomId,
-  currentRoomId,
-  connectionStates,
-  leaveRoom,
-  joinRoom,
-}) {
-  const uid = useUser().uid;
+function RoomUsers({ currentRoomId, roomId, roomUsers, connectionStates }) {
+  const userIds = useMemo(() => Object.keys(roomUsers), [roomUsers]);
+  return userIds.map((uid) => (
+    <Suspense key={uid} fallback={null}>
+      <RoomUser
+        currentRoomId={currentRoomId}
+        roomId={roomId}
+        uid={uid}
+        connectionState={connectionStates[uid]}
+      />
+    </Suspense>
+  ));
+}
 
-  const join = useCallback(() => {
-    joinRoom(roomId);
-  }, [roomId, joinRoom]);
+function Room({ roomId, currentRoomId, connectionStates, joinRoom }) {
+  const outputDevice = useRecoilValue(audioOutputAtom);
+  const join = useCallback(async () => {
+    const success = await joinRoom(roomId);
+    if (success) {
+      console.log('me join: play sound');
+      playSound(joinedSound, outputDevice);
+    }
+  }, [outputDevice, joinRoom, roomId]);
+  const leave = useCallback(async () => {
+    const success = await joinRoom(null, false); // create new room
+    if (success) {
+      console.log('me leave: play sound');
+      playSound(leftSound, outputDevice);
+    }
+  }, [joinRoom, outputDevice]);
 
   const database = useDatabase();
   let roomName = useDatabaseObjectData(database.ref(`rooms/${roomId}/name`));
@@ -59,7 +79,7 @@ function Room({
     roomName = '';
   }
 
-  const isInCurrentRoom = currentRoomId === roomId;
+  const isCurrentRoom = roomId && roomId === currentRoomId;
 
   const roomUsers = useDatabaseObjectData(
     database.ref(`rooms/${roomId}/users`)
@@ -77,10 +97,11 @@ function Room({
     return null;
   }
 
-  const containerStyles = isInCurrentRoom
+  const containerStyles = isCurrentRoom
     ? ' border border-solid bg-gray-100 ' +
       (locked ? ' border-red-500' : ' border-transparent')
-    : ' hover:bg-gray-200 cursor-pointer';
+    : ' border border-solid hover:bg-gray-200 border-transparent';
+
   return (
     <div
       className={
@@ -91,21 +112,19 @@ function Room({
     >
       <div className="flex-1 self-center">
         <span className="font-semibold">{roomName}</span>
-        <Suspense fallback={<div></div>}>
-          <RoomUsers
-            currentRoomId={currentRoomId}
-            roomId={roomId}
-            roomUsers={roomUsers}
-            connectionStates={connectionStates}
-          />
-        </Suspense>
+        <RoomUsers
+          currentRoomId={currentRoomId}
+          roomId={roomId}
+          roomUsers={roomUsers}
+          connectionStates={connectionStates}
+        />
       </div>
 
-      {isInCurrentRoom && roomUserCount > 1 ? (
+      {isCurrentRoom && roomUserCount > 1 ? (
         <button
           className="py-1 px-2 ml-1 text-gray-700 rounded focus:outline-none hover:bg-gray-200"
           onClick={toggleLock}
-          disabled={!isInCurrentRoom}
+          disabled={!isCurrentRoom}
         >
           {locked ? (
             <span className="text-red-500">
@@ -117,38 +136,11 @@ function Room({
         </button>
       ) : null}
 
-      {isInCurrentRoom && roomUserCount > 1 ? (
-        <Button
-          className="ml-1"
-          onClick={() => {
-            joinRoom(null, false); // create new room
-          }}
-        >
+      {isCurrentRoom && roomUserCount > 1 ? (
+        <Button className="ml-1" onClick={leave}>
           <ExitIcon width={16} height={16} />
         </Button>
       ) : null}
-    </div>
-  );
-}
-
-function User({ userId, callFriend, status }) {
-  const database = useDatabase();
-  const userDoc = useDatabaseObjectData(database.ref('users').child(userId));
-  const isActive = status === 'ACTIVE';
-  return (
-    <div
-      className={
-        'w-full flex items-center text-left focus:outline-none p-1.5 pl-3 mb-1 rounded ' +
-        (isActive ? 'hover:bg-gray-200' : '')
-      }
-      onClick={() => {
-        if (isActive) {
-          callFriend(userId);
-        }
-      }}
-    >
-      <StatusIndicator status={status} />
-      <div className="ml-2">{userDoc.displayName}</div>
     </div>
   );
 }
@@ -185,8 +177,7 @@ export function RoomList({
     [friendRoomIdsList]
   );
 
-  const friendRooms =
-    useDatabaseObjectDataPartial('rooms', friendRoomIds) || {};
+  const friendRooms = useDatabaseObjectDataPartial('rooms', friendRoomIds);
   const currentRoomLocked = friendRooms[currentRoomId]?.locked;
   let tempRoomIds = [];
 
@@ -226,7 +217,9 @@ export function RoomList({
       <SectionLabel className="flex-1 mt-4">Inactive</SectionLabel>
       {inactiveFriends.map((friendUid) => (
         <Suspense key={friendUid} fallback={<div>Loading</div>}>
-          <User userId={friendUid} status={friendDocs[friendUid].status} />
+          <div className="w-full flex items-center text-left focus:outline-none p-1.5 pl-3 mb-1 rounded">
+            <RoomUser uid={friendUid} />
+          </div>
         </Suspense>
       ))}
     </div>

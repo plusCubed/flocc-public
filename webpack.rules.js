@@ -31,7 +31,7 @@ module.exports = [
     },
   },*/
   {
-    test: /\.(woff|woff2|png|svg|jpg|gif)$/,
+    test: /\.(woff|woff2|png|svg|jpg|gif|mp3|wav)$/,
     use: ['file-loader'],
   },
   // Put your webpack loader rules in this array.  This is where you would put

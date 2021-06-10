@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+
 import io from 'socket.io-client';
 
 export function useSocket(endpoint, user) {

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState, Suspense } from 'react';
+
 import {
   useAuth,
   useDatabase,
@@ -7,31 +8,55 @@ import {
   useUser,
 } from 'reactfire';
 
-import { RoomRtc } from './roomRtc';
 import { useSocket } from '../hooks/useSocket';
-import { RoomList } from './roomList';
-import { Music } from './music';
 import { useSocketRoom } from '../hooks/useSocketRoom';
-import { SettingsDropdown } from './settingsDropdown';
-import { MatMicrophoneIcon, MatMicrophoneOffIcon } from './icons';
 import { isDevelopment } from '../util/isDevelopment';
+
 import { FriendsDropdown } from './friendsDropdown';
+import { MatMicrophoneIcon, MatMicrophoneOffIcon } from './icons';
+import { Music } from './music';
+import { RoomList } from './roomList';
+import { RoomRtc } from './roomRtc';
+import { SettingsDropdown } from './settingsDropdown';
 import { StatusIndicator } from './statusIndicator';
 
 const SOCKET_ENDPOINT = isDevelopment
   ? 'http://localhost:3010'
   : 'https://server.flocc.app:8443';
 
+function MuteButton({ roomId, socket }) {
+  const database = useDatabase();
+  const uid = useUser().uid;
+  const mute = useDatabaseObjectData(database.ref(`users/${uid}/mute`));
+  const toggleMute = useCallback(() => {
+    socket.emit('toggle_mute');
+  }, [socket]);
+
+  const roomUserCount = useDatabaseListData(
+    database.ref(`rooms/${roomId}/users`)
+  ).length;
+
+  return roomUserCount > 1 ? (
+    <button
+      className="relative p-1 ml-1 text-gray-700 rounded focus:outline-none hover:bg-gray-200"
+      onClick={toggleMute}
+    >
+      {mute ? (
+        <MatMicrophoneOffIcon width={20} height={20} />
+      ) : (
+        <MatMicrophoneIcon width={20} height={20} />
+      )}
+    </button>
+  ) : null;
+}
+
 export function Home() {
   const database = useDatabase();
   const user = useUser();
   const { displayName, email, photoURL, uid } = user;
 
-  const [inputDevice, setInputDevice] = useState('');
-  const [outputDevice, setOutputDevice] = useState('');
-
   const { socket, connected } = useSocket(SOCKET_ENDPOINT, user);
-  const { roomId, joinRoom, leaveRoom, transitioningRef } = useSocketRoom(
+  const { roomId, joinRoom, leaveRoom, transitioning } = useSocketRoom(
     socket,
     connected
   );
@@ -43,7 +68,7 @@ export function Home() {
       if (!socket) return;
 
       socket.emit('active');
-      if (!roomId && !transitioningRef.current) {
+      if (!roomId && !transitioning) {
         console.log('joining new room on focus');
         joinRoom(null, false);
       }
@@ -85,7 +110,7 @@ export function Home() {
       window.removeEventListener('blur', onblur);
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [database, joinRoom, leaveRoom, roomId, socket, transitioningRef]);
+  }, [database, joinRoom, leaveRoom, roomId, socket, transitioning]);
 
   const auth = useAuth();
   const signOut = useCallback(async () => {
@@ -96,10 +121,6 @@ export function Home() {
   const [connectionStates, setConnectionStates] = useState({});
 
   const mute = useDatabaseObjectData(database.ref(`users/${uid}/mute`));
-  const toggleMute = useCallback(() => {
-    socket.emit('toggle_mute');
-  }, [socket]);
-
   const status = useDatabaseObjectData(database.ref(`users/${uid}/status`));
 
   return (
@@ -113,31 +134,12 @@ export function Home() {
           <div className="flex items-center font-semibold">
             <div>{displayName}</div>
             <StatusIndicator status={status} className="ml-1" />
-            <button
-              className="relative p-1 ml-1 text-gray-700 rounded focus:outline-none hover:bg-gray-200"
-              onClick={toggleMute}
-            >
-              {mute ? (
-                <MatMicrophoneOffIcon width={20} height={20} />
-              ) : (
-                <MatMicrophoneIcon width={20} height={20} />
-              )}
-            </button>
+            <Suspense fallback={null}>
+              <MuteButton roomId={roomId} socket={socket} />
+            </Suspense>
             <div className="flex-1" />
-            <FriendsDropdown
-              signOut={signOut}
-              inputDevice={inputDevice}
-              outputDevice={outputDevice}
-              setInputDevice={setInputDevice}
-              setOutputDevice={setOutputDevice}
-            />
-            <SettingsDropdown
-              signOut={signOut}
-              inputDevice={inputDevice}
-              outputDevice={outputDevice}
-              setInputDevice={setInputDevice}
-              setOutputDevice={setOutputDevice}
-            />
+            <FriendsDropdown />
+            <SettingsDropdown signOut={signOut} />
           </div>
           <div className="flex overflow-y-auto flex-col flex-1">
             <div className="flex-1 mt-2">
@@ -151,8 +153,6 @@ export function Home() {
           </div>
           <RoomRtc
             socket={socket}
-            inputDevice={inputDevice}
-            outputDevice={outputDevice}
             mute={mute}
             onConnectionStatesChange={setConnectionStates}
           />

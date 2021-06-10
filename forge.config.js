@@ -10,7 +10,7 @@ module.exports = {
     name: 'Flocc',
     executableName: 'Flocc',
     asar: true,
-    icon: path.resolve(__dirname, 'src', 'assets', 'icon'),
+    icon: path.resolve(__dirname, 'assets', 'icon'),
     appBundleId: 'com.pluscubed.flocc',
     usageDescription: {
       Microphone: 'Allow microphone access to talk with friends',
@@ -30,7 +30,7 @@ module.exports = {
       config: {
         name: 'Flocc',
         iconUrl: 'https://flocc.app/favicon.ico',
-        setupIcon: path.resolve(__dirname, 'src', 'assets', 'icon.ico'),
+        setupIcon: path.resolve(__dirname, 'assets', 'icon.ico'),
       },
     },
     {

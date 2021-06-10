@@ -1,18 +1,21 @@
 import React, { Suspense, useEffect } from 'react';
+
+import * as Sentry from '@sentry/electron';
+import isElectron from 'is-electron';
 import {
   AuthCheck,
   FirebaseAppProvider,
   preloadDatabase,
   useAuth,
 } from 'reactfire';
-import isElectron from 'is-electron';
-import * as Sentry from '@sentry/electron';
+import { RecoilRoot } from 'recoil';
 
 import firebaseConfig from '../config/firebaseConfig';
-import { SignInForm } from './signin';
-import { Home } from './home';
-import { ErrorBoundary } from './errorBoundary';
 import { isDevelopment } from '../util/isDevelopment';
+
+import { ErrorBoundary } from './errorBoundary';
+import { Home } from './home';
+import { SignInForm } from './signin';
 
 function ScreenCenter({ children }) {
   return (
@@ -22,8 +25,7 @@ function ScreenCenter({ children }) {
 
 if (!isDevelopment) {
   Sentry.init({
-    dsn:
-      'https://817efb9fe22b4900ad01c6a9cd2a17cf@o604937.ingest.sentry.io/5744711',
+    dsn: 'https://817efb9fe22b4900ad01c6a9cd2a17cf@o604937.ingest.sentry.io/5744711',
   });
 }
 
@@ -57,9 +59,11 @@ export function AppWrapper() {
   return (
     <ErrorBoundary fallback={<ScreenCenter>An error occurred</ScreenCenter>}>
       <FirebaseAppProvider firebaseConfig={firebaseConfig}>
-        <Suspense fallback={<ScreenCenter>Loading...</ScreenCenter>}>
-          <App />
-        </Suspense>
+        <RecoilRoot>
+          <Suspense fallback={<ScreenCenter>Loading...</ScreenCenter>}>
+            <App />
+          </Suspense>
+        </RecoilRoot>
       </FirebaseAppProvider>
     </ErrorBoundary>
   );

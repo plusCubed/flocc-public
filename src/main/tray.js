@@ -57,7 +57,7 @@ class TrayGenerator {
   createTray() {
     const iconPath =
       process.platform === 'win32' ? 'icon.png' : 'macMenuIconTemplate.png';
-    this.tray = new Tray(path.join(__dirname, '..', 'assets', iconPath));
+    this.tray = new Tray(path.join(__dirname, 'assets', iconPath));
     this.tray.setIgnoreDoubleClickEvents(true);
 
     this.tray.on('click', () => this.showWindow());

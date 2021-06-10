@@ -1,6 +1,8 @@
-import { useDatabase, useDatabaseObjectData, useUser } from 'reactfire';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { usePrevious } from './usePrev';
+
+import { useDatabase, useDatabaseObjectData, useUser } from 'reactfire';
+
+import { usePrevious } from './usePrevious';
 
 function isString(obj) {
   return typeof obj === 'string' || obj instanceof String;
@@ -22,11 +24,13 @@ export function useSocketRoom(socket, connected) {
 
   const transitioningRef = useRef(false);
 
+  // Return true if joined successfully
   const joinRoom = useCallback(
     async (id, locked) => {
-      if (!socket) return;
-      if (transitioningRef.current) return;
-      if (id && id === roomId) return; // already in this room
+      if (!socket) return false;
+      if (transitioningRef.current) return false;
+      if (id && id === roomId) return false; // already in this room
+      console.log(id, roomId);
 
       transitioningRef.current = true;
 
@@ -36,22 +40,16 @@ export function useSocketRoom(socket, connected) {
       socket.once('joined', () => {
         transitioningRef.current = false;
       });
+
+      return true;
     },
     [roomId, socket]
   );
 
-  /*const call = useCallback(
-    (peerUid) => {
-      if (!socket) return;
-      console.info('Calling', peerUid);
-      socket.emit('call', { peerUid });
-    },
-    [socket]
-  );
-*/
+  // Return true if left successfully
   const leaveRoom = useCallback(async () => {
-    if (!socket) return;
-    if (transitioningRef.current) return;
+    if (!socket) return false;
+    if (transitioningRef.current) return false;
 
     transitioningRef.current = true;
 
@@ -60,6 +58,8 @@ export function useSocketRoom(socket, connected) {
     socket.once('left', () => {
       transitioningRef.current = false;
     });
+
+    return true;
   }, [roomId, socket]);
 
   const prevConnected = usePrevious(connected);
@@ -79,17 +79,10 @@ export function useSocketRoom(socket, connected) {
     }
   }, [connected, database, prevConnected, roomId, socket, uid]);
 
-  /*const prevRoomState = usePrevious(roomState);
-  useEffect(() => {
-    if (roomState === RoomState.NONE && socket) {
-      joinRoom(null, false);
-    }
-  }, [joinRoom, prevRoomState, roomState, socket, uid]);*/
-
   return {
     roomId,
     joinRoom,
     leaveRoom,
-    transitioningRef,
+    transitioning: transitioningRef.current,
   };
 }

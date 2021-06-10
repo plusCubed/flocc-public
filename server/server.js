@@ -104,6 +104,58 @@ function getPeersInRoom(socket, room) {
   );
 }
 
+const AddPeerType = {
+  OTHER_JOINING: 'OTHER_JOINING',
+  ME_JOINING: 'ME_JOINING',
+};
+
+const RemovePeerType = {
+  OTHER_LEAVING: 'OTHER_LEAVING',
+  ME_LEAVING: 'ME_LEAVING',
+};
+
+// create new room if room is null - mutes if so
+// otherwise, unmute & join
+async function joinRoom(room, locked, socket) {
+  const uid = socket.user.uid;
+  if (room in socket.rooms) {
+    return; // Already joined
+  }
+  await leaveAllRoomsAsync(socket);
+
+  if (!room) {
+    const roomRef = await database.ref(`rooms`).push({ locked: !!locked });
+    room = roomRef.key;
+    await database.ref(`users/${uid}/mute`).set(true);
+  } else {
+    await database.ref(`users/${uid}/mute`).set(false);
+  }
+  await database.ref(`rooms/${room}/users/${uid}`).set(true);
+  await database.ref(`users/${uid}/room`).set(room);
+
+  socket.join(room);
+  socket.emit(`joined`, { room });
+
+  // tell peers to add this
+  log(`[room ${room}] add peer`, socket.id);
+  socket.to(room).emit('addPeer', {
+    peerSocketId: socket.id,
+    peerUid: uid,
+    type: AddPeerType.OTHER_JOINING,
+  });
+
+  // tell this to add each peer
+  const peers = getPeersInRoom(socket, room);
+  for (const peerSocket of peers) {
+    log(`[${socket.id}] add peer`, peerSocket.id);
+    socket.emit('addPeer', {
+      peerSocketId: peerSocket.id,
+      peerUid: peerSocket.user.uid,
+      type: AddPeerType.ME_JOINING,
+    });
+  }
+}
+
 /**
  * @param {Socket} socket
  * @param {string} room
@@ -117,6 +169,7 @@ function leaveRoom(socket, room) {
   socket.to(room).emit('removePeer', {
     peerSocketId: socket.id,
     peerUid: uid,
+    type: RemovePeerType.OTHER_LEAVING,
   });
 
   // tell this to remove each peer
@@ -125,6 +178,7 @@ function leaveRoom(socket, room) {
     socket.emit('removePeer', {
       peerSocketId: peerSocket.id,
       peerUid: peerSocket.user.uid,
+      type: RemovePeerType.ME_LEAVING,
     });
   }
 
@@ -211,42 +265,6 @@ io.use(async (socket, next) => {
   }
 });
 
-// create new room if room is null
-const joinRoom = async (room, locked, socket, uid) => {
-  if (room in socket.rooms) {
-    return; // Already joined
-  }
-  await leaveAllRoomsAsync(socket);
-
-  if (!room) {
-    const roomRef = await database.ref(`rooms`).push({ locked: !!locked });
-    room = roomRef.key;
-    await database.ref(`users/${uid}/mute`).set(true);
-  }
-  await database.ref(`rooms/${room}/users/${uid}`).set(true);
-  await database.ref(`users/${uid}/room`).set(room);
-
-  socket.join(room);
-  socket.emit(`joined`, { room });
-
-  // tell peers to add this
-  log(`[room ${room}] add peer`, socket.id);
-  socket.to(room).emit('addPeer', {
-    peerSocketId: socket.id,
-    peerUid: uid,
-  });
-
-  // tell this to add each peer
-  const peers = getPeersInRoom(socket, room);
-  for (const peerSocket of peers) {
-    log(`[${socket.id}] add peer`, peerSocket.id);
-    socket.emit('addPeer', {
-      peerSocketId: peerSocket.id,
-      peerUid: peerSocket.user.uid,
-    });
-  }
-};
-
 io.on('connection', (socket) => {
   const uid = socket.user.uid;
 
@@ -261,13 +279,17 @@ io.on('connection', (socket) => {
 
   socket.on('disconnecting', () => {
     log(`[${socket.id}] event:disconnecting`);
-    if (
-      socket.user.uid in uidToSocket &&
-      uidToSocket[socket.user.uid].id === socket.id
-    ) {
-      delete uidToSocket[socket.user.uid];
+    try {
+      if (
+        socket.user.uid in uidToSocket &&
+        uidToSocket[socket.user.uid].id === socket.id
+      ) {
+        delete uidToSocket[socket.user.uid];
+      }
+      leaveAllRooms(socket);
+    } catch (e) {
+      console.error(e);
     }
-    leaveAllRooms(socket);
   });
 
   socket.on('active', () => {
@@ -291,7 +313,7 @@ io.on('connection', (socket) => {
     log(`[${socket.id}] event:join `, msg);
     const { room, locked } = msg;
     try {
-      await joinRoom(room, locked, socket, uid);
+      await joinRoom(room, locked, socket);
     } catch (e) {
       console.error(e);
     }

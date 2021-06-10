@@ -1,11 +1,14 @@
 import React, { useMemo, useState, Suspense, useTransition } from 'react';
+
 import {
   useDatabase,
   useDatabaseListData,
   useDatabaseObjectData,
   useUser,
 } from 'reactfire';
+
 import { useDatabaseObjectDataPartial } from '../hooks/useDatabaseObjectDataPartial';
+
 import { AddFriendIcon, ClockIcon } from './icons';
 
 export function Friends() {
@@ -48,8 +51,7 @@ export function FriendRequests() {
         }),
     [friendRequests]
   );
-  const requestUserDocs =
-    useDatabaseObjectDataPartial('users', requestUids) || {};
+  const requestUserDocs = useDatabaseObjectDataPartial('users', requestUids);
 
   const confirmRequest = (otherUid) => {
     database.ref('friends').child(uid).child(otherUid).set(true);

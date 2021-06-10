@@ -1,8 +1,10 @@
 import React, { Suspense, useCallback, useEffect, useState } from 'react';
+
 import usePromise from 'react-promise-suspense';
 
-import { Option, Select } from './ui';
 import { getOSMicPermissionGranted } from '../util/micPermission';
+
+import { Option, Select } from './ui';
 
 async function getConnectedDevices(type) {
   const devices = await navigator.mediaDevices.enumerateDevices();

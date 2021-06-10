@@ -56,7 +56,7 @@ const createWindow = () => {
       enableRemoteModule: true,
       backgroundThrottling: false,
     },
-    icon: path.join(__dirname, '..', 'assets', 'icon.ico'),
+    icon: path.join(__dirname, '..', '..', 'assets', 'icon.ico'),
     maximizable: false,
     fullscreenable: false,
     show: false,

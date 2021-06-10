@@ -1,10 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
-import { Audio } from './ui';
-import { useSocketListener } from '../hooks/useSocket';
-import { Peer } from '../util/peer';
-import { getOSMicPermissionGranted } from '../util/micPermission';
 import { useUser } from 'reactfire';
+import { useRecoilValue } from 'recoil';
+
+import joinedSound from '../assets/sounds/joined.wav';
+import leftSound from '../assets/sounds/left.wav';
+import { audioInputAtom, audioOutputAtom } from '../atoms/audioDeviceAtom';
+import { useSocketListener } from '../hooks/useSocket';
+import { getOSMicPermissionGranted } from '../util/micPermission';
+import { Peer } from '../util/peer';
+import { playSound } from '../util/playSound';
+
+import { Audio } from './ui';
 
 function getAudioInputStream(device) {
   return navigator.mediaDevices.getUserMedia({
@@ -27,14 +34,22 @@ async function getMicStream(inputDevice) {
   return micStream;
 }
 
-export function RoomRtc({
-  socket,
-  mute,
-  inputDevice,
-  outputDevice,
-  onConnectionStatesChange,
-}) {
+const AddPeerType = {
+  OTHER_JOINING: 'OTHER_JOINING',
+  ME_JOINING: 'ME_JOINING',
+};
+
+const RemovePeerType = {
+  OTHER_LEAVING: 'OTHER_LEAVING',
+  ME_LEAVING: 'ME_LEAVING',
+};
+
+export function RoomRtc({ socket, mute, onConnectionStatesChange }) {
   const uid = useUser().uid;
+
+  const inputDevice = useRecoilValue(audioInputAtom);
+  const outputDevice = useRecoilValue(audioOutputAtom);
+
   // non-UI state
   const peers = useRef({});
   // UI state
@@ -114,7 +129,7 @@ export function RoomRtc({
   }, [peerConnectionStates, onConnectionStatesChange]);
 
   const addPeer = useCallback(
-    ({ peerSocketId, peerUid }) => {
+    ({ peerSocketId, peerUid, type }) => {
       if (peerUid in peers.current) {
         // Already added
         return;
@@ -140,28 +155,41 @@ export function RoomRtc({
 
       peers.current[peerUid] = peer;
       setPeerUids(Object.keys(peers.current));
+
+      if (type === AddPeerType.OTHER_JOINING) {
+        console.log('other join: play sound');
+        playSound(joinedSound, outputDevice);
+      }
     },
-    [socket, uid]
+    [outputDevice, socket, uid]
   );
   useSocketListener(socket, 'addPeer', addPeer);
 
-  const removePeer = useCallback(({ peerUid }) => {
-    console.info(`socket: [${peerUid}] removePeer`);
+  const removePeer = useCallback(
+    ({ peerUid, type }) => {
+      console.info(`socket: [${peerUid}] removePeer`);
 
-    if (peerUid in peers.current) {
-      peers.current[peerUid].destroy();
-      delete peers.current[peerUid];
-    }
-    setPeerStreams((peerStreams) => {
-      const { [peerUid]: _, ...filtered } = peerStreams;
-      return filtered;
-    });
-    setPeerConnectionStates((connectionStates) => {
-      const { [peerUid]: _, ...filtered } = connectionStates;
-      return filtered;
-    });
-    setPeerUids(Object.keys(peers.current));
-  }, []);
+      if (peerUid in peers.current) {
+        peers.current[peerUid].destroy();
+        delete peers.current[peerUid];
+      }
+      setPeerStreams((peerStreams) => {
+        const { [peerUid]: _, ...filtered } = peerStreams;
+        return filtered;
+      });
+      setPeerConnectionStates((connectionStates) => {
+        const { [peerUid]: _, ...filtered } = connectionStates;
+        return filtered;
+      });
+      setPeerUids(Object.keys(peers.current));
+
+      if (type === RemovePeerType.OTHER_LEAVING) {
+        console.log('other leave: play sound');
+        playSound(leftSound, outputDevice);
+      }
+    },
+    [outputDevice]
+  );
   useSocketListener(socket, 'removePeer', removePeer);
 
   // WebRTC signaling
