@@ -156,7 +156,7 @@ export function Home() {
             mute={mute}
             onConnectionStatesChange={setConnectionStates}
           />
-          {roomId ? <Music currentRoomId={roomId} /> : null}
+          {/*{roomId ? <Music currentRoomId={roomId} /> : null}*/}
         </div>
       )}
     </div>
