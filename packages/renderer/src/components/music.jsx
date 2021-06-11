@@ -6,19 +6,19 @@ import React, {
   useState,
 } from 'react';
 
+import ReactPlayer from 'https://cdn.skypack.dev/react-player';
 import isElectron from 'is-electron';
-import ReactPlayer from 'react-player/youtube';
 import { useDatabase } from 'reactfire';
 
-import { usePrevious } from '../hooks/usePrevious';
-
-import { MusicIcon, SkipNextIcon } from './icons';
-import { Button } from './ui';
 import {
   useDatabaseListData,
   useDatabaseObjectData,
 } from '../hooks/useDatabase';
+import { usePrevious } from '../hooks/usePrevious';
 import { electronApi } from '../util/electronApi';
+
+import { MusicIcon, SkipNextIcon } from './icons';
+import { Button } from './ui';
 
 export function Music({ currentRoomId }) {
   const config = useMemo(() => {
@@ -53,32 +53,30 @@ export function Music({ currentRoomId }) {
 
         const options = { limit: 1 };
         electronApi().send('ytsr', query, options);
-        electronApi().once(
-          'ytsr-response',
-          async (event, error, searchResults) => {
-            if (!error) {
-              if (searchResults.items && searchResults.items[0]) {
-                const result = searchResults.items[0];
-                await musicDbRef.child(`${queueId}`).set({
-                  title: result.title,
-                  url: result.url,
-                  duration: result.duration,
-                  isLive: result.isLive,
-                });
-                await musicSyncDbRef.child(`${queueId}`).set({
-                  playedSeconds: 0,
-                  playing: true,
-                });
-              } else {
-                // TODO: display no search results
-                reset();
-              }
-            } else {
-              console.error('Search error');
-              reset();
-            }
+        electronApi().once('ytsr-response', async (error, searchResults) => {
+          if (error) {
+            console.error('Search error', error);
+            reset();
+            return;
           }
-        );
+
+          if (searchResults.items && searchResults.items[0]) {
+            const result = searchResults.items[0];
+            await musicDbRef.child(`${queueId}`).set({
+              title: result.title,
+              url: result.url,
+              duration: result.duration,
+              isLive: result.isLive,
+            });
+            await musicSyncDbRef.child(`${queueId}`).set({
+              playedSeconds: 0,
+              playing: true,
+            });
+          } else {
+            // TODO: display no search results
+            reset();
+          }
+        });
       }
     },
     [musicDbRef, musicSyncDbRef]

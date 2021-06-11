@@ -2,26 +2,27 @@ import React, { useCallback, useEffect, useState, Suspense } from 'react';
 
 import { useAuth, useDatabase, useUser } from 'reactfire';
 
-import { useSocket } from '../hooks/useSocket';
-import { useSocketRoom } from '../hooks/useSocketRoom';
 import { isDevelopment } from '../constants/isDevelopment';
-
-import { FriendsDropdown } from './friendsDropdown';
-import { MatMicrophoneIcon, MatMicrophoneOffIcon } from './icons';
-//import { Music } from './music';
-import { RoomList } from './roomList';
-import { RoomRtc } from './roomRtc';
-import { SettingsDropdown } from './settingsDropdown';
-import { StatusIndicator } from './statusIndicator';
 import {
   useDatabaseListData,
   useDatabaseObjectData,
 } from '../hooks/useDatabase';
+import { useSocket } from '../hooks/useSocket';
+import { useSocketRoom } from '../hooks/useSocketRoom';
 import { useUid } from '../hooks/useUid';
 
-const SOCKET_ENDPOINT = isDevelopment
+import { FriendsDropdown } from './friendsDropdown';
+import { MatMicrophoneIcon, MatMicrophoneOffIcon } from './icons';
+import { Music } from './music';
+import { RoomList } from './roomList';
+import { RoomRtc } from './roomRtc';
+import { SettingsDropdown } from './settingsDropdown';
+import { StatusIndicator } from './statusIndicator';
+
+const SOCKET_ENDPOINT =
+  /*isDevelopment
   ? 'http://localhost:3010'
-  : 'https://server.flocc.app:8443';
+  : */ 'https://server.flocc.app:8443';
 
 function MuteButton({ roomId, socket }) {
   const database = useDatabase();
@@ -177,7 +178,7 @@ export function Home() {
             mute={mute}
             onConnectionStatesChange={setConnectionStates}
           />
-          {/*{roomId ? <Music currentRoomId={roomId} /> : null}*/}
+          {roomId ? <Music currentRoomId={roomId} /> : null}
         </div>
       )}
     </div>

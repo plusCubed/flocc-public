@@ -4,9 +4,9 @@ import isElectron from 'is-electron';
 import { useAuth } from 'reactfire';
 
 import Icon from '../../assets/icon.png';
+import { electronApi } from '../util/electronApi';
 
 import { Button } from './ui';
-import { electronApi } from '../util/electronApi';
 
 export function SignInForm() {
   const auth = useAuth();
@@ -17,7 +17,7 @@ export function SignInForm() {
       electronApi().send('sign-in-with-google');
       electronApi().once(
         'sign-in-with-google-response',
-        async (event, error, token) => {
+        async (error, token) => {
           if (!error) {
             await auth.signInWithCredential(
               GoogleAuthProvider.credential(null, token.access_token)

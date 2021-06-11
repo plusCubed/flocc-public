@@ -13,7 +13,7 @@ body,
   font-size: 14px;
 }
 
-*,
+:not(input),
 a,
 button {
   cursor: default;
