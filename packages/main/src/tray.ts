@@ -1,5 +1,5 @@
 import { join } from 'path';
-import { app, Tray, Menu, autoUpdater } from 'electron';
+import { app, Tray, Menu } from 'electron';
 
 export class TrayGenerator {
   private mainWindow: any;
@@ -38,7 +38,9 @@ export class TrayGenerator {
       {
         label: 'Check for Updates...',
         click: () => {
-          autoUpdater.checkForUpdates();
+          import('electron-updater')
+            .then(({ autoUpdater }) => autoUpdater.checkForUpdatesAndNotify())
+            .catch((e) => console.error('Failed check updates:', e));
         },
       },
       {

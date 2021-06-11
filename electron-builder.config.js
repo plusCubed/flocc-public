@@ -22,6 +22,9 @@ const config = {
   extraMetadata: {
     version: version,
   },
+  nsis: {
+    artifactName: '${productName}-Setup-${arch}-${version}.${ext}',
+  },
   mac: {
     hardenedRuntime: true,
     gatekeeperAssess: false,
@@ -37,7 +40,10 @@ const config = {
       provider: 's3',
       bucket: 'flocc-releases',
     },
-    { provider: 'github' },
+    {
+      provider: 'github',
+      publishAutoUpdate: false,
+    },
   ],
 };
 
