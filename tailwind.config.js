@@ -3,7 +3,7 @@ const defaultTheme = require('tailwindcss/defaultTheme');
 
 module.exports = {
   mode: 'jit',
-  purge: ['./src/**/*.html', './src/**/*.css', './src/**/*.js'],
+  purge: ['./packages/renderer/**/*.{css,js,jsx,ts,tsx,html}'],
   theme: {
     fontFamily: {
       sans: ['Open Sans', ...defaultTheme.fontFamily.sans],

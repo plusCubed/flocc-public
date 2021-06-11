@@ -1,11 +1,11 @@
-import { Server } from 'socket.io';
-import express from 'express';
 import http from 'http';
 import https from 'https';
-import admin from 'firebase-admin';
 import fs from 'fs';
+import { Server } from 'socket.io';
+import express from 'express';
+import admin from 'firebase-admin';
 import packageJson from './package.json';
-import serviceAccount from './service-account.json';
+import serviceAccount from './secrets/service-account.json';
 
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
@@ -14,8 +14,8 @@ const httpServer = isDevelopment
   ? http.createServer(app)
   : https.createServer(
       {
-        key: fs.readFileSync('cert/key.pem', 'utf8'),
-        cert: fs.readFileSync('cert/cert.pem', 'utf8'),
+        key: fs.readFileSync('secrets/cert/key.pem', 'utf8'),
+        cert: fs.readFileSync('secrets/cert/cert.pem', 'utf8'),
       },
       app
     );
