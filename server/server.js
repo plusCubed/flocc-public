@@ -189,10 +189,16 @@ function leaveRoom(socket, room) {
     try {
       await database.ref(`rooms/${room}/users/${uid}`).remove();
       await database.ref(`users/${uid}/room`).set('');
-      // Delete room if no users left
+
       const roomDoc = (await database.ref(`rooms/${room}`).once('value')).val();
-      if (roomDoc && !roomDoc.users && !roomDoc.permanent) {
-        await deleteFirebaseRoom(room);
+      if (roomDoc) {
+        if (!roomDoc.users && !roomDoc.permanent) {
+          // Delete room if no users left
+          await deleteFirebaseRoom(room);
+        } else if (Object.entries(roomDoc.users).length === 1) {
+          // mute last remaining user
+          await database.ref(`users/${uid}/mute`).set(true);
+        }
       }
     } catch (e) {
       console.error(e);
