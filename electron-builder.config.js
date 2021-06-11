@@ -11,7 +11,14 @@ const config = {
     output: 'dist',
     buildResources: 'buildResources',
   },
-  files: ['packages/**/dist/**', 'packages/main/assets/**', '!node_modules'],
+  files: [
+    'packages/**/dist/**',
+    'packages/main/assets/**',
+    '!node_modules/**',
+    'node_modules/semver',
+    'node_modules/yallist',
+    'node_modules/lru-cache',
+  ],
   extraMetadata: {
     version: version,
   },
