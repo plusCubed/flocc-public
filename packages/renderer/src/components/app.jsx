@@ -10,7 +10,7 @@ import {
 } from 'reactfire';
 import { RecoilRoot } from 'recoil';
 
-import firebaseConfig from '../config/firebaseConfig';
+import firebaseConfig from '../secrets/firebaseConfig';
 import { isDevelopment } from '../constants/isDevelopment';
 
 import { ErrorBoundary } from './errorBoundary';
