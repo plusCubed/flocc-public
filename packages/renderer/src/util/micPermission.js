@@ -8,8 +8,9 @@ export async function getOSMicPermissionGranted() {
   if (electronApi().platform === 'darwin') {
     const mediaAccessResult = new Promise((resolve, reject) => {
       electronApi().send('ask-for-media-access', 'microphone');
-      electronApi().once('ask-for-media-access-response', (result) => {
-        resolve(result);
+      electronApi().once('ask-for-media-access-response', (error, result) => {
+        if (error) reject(error);
+        else resolve(result);
       });
     });
     return await mediaAccessResult;
