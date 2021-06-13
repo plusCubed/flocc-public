@@ -32,7 +32,7 @@ export function useSocket(endpoint, user) {
             setTimeout(async () => {
               console.log('attempt reconnect');
               const idToken = await user.getIdToken(false);
-              socket.io.opts.query = { idToken };
+              socket.io.opts.query = { idToken, version: '3' };
               socket.connect();
             }, 1000);
             break;
