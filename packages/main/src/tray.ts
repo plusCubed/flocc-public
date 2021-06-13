@@ -61,7 +61,7 @@ export class TrayGenerator {
 
   createTray() {
     const iconPath =
-      process.platform === 'win32' ? 'iconTray.png' : 'iconMacTray.png';
+      process.platform === 'win32' ? 'iconTray.png' : 'iconMacTrayTemplate.png';
     this.tray = new Tray(join(__dirname, '..', 'assets', iconPath));
     this.tray.setIgnoreDoubleClickEvents(true);
 
