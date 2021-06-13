@@ -6,12 +6,12 @@ import joinedSound from '../../assets/sounds/joined.wav';
 import leftSound from '../../assets/sounds/left.wav';
 import { audioInputAtom, audioOutputAtom } from '../atoms/audioDeviceAtom';
 import { useSocketListener } from '../hooks/useSocket';
+import { useUid } from '../hooks/useUid';
 import { getOSMicPermissionGranted } from '../util/micPermission';
 import { Peer } from '../util/peer';
 import { playSound } from '../util/playSound';
 
 import { Audio } from './ui';
-import { useUid } from '../hooks/useUid';
 
 function getAudioInputStream(device) {
   return navigator.mediaDevices.getUserMedia({

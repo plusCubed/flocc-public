@@ -1,4 +1,5 @@
 import isElectron from 'is-electron';
+
 import { electronApi } from './electronApi';
 
 export async function getOSMicPermissionGranted() {

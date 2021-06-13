@@ -7,9 +7,9 @@ import {
   useDatabaseObjectData,
   useDatabaseObjectDataPartial,
 } from '../hooks/useDatabase';
+import { useUid } from '../hooks/useUid';
 
 import { AddFriendIcon, ClockIcon } from './icons';
-import { useUid } from '../hooks/useUid';
 
 export function Friends() {
   const uid = useUid();
