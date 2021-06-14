@@ -99,9 +99,9 @@ function getRooms(socket) {
 function getPeersInRoom(socket, room) {
   const socketIds = new Set(io.of('/').adapter.rooms.get(room));
   socketIds.delete(socket.id);
-  return Array.from(socketIds).map((socketId) =>
-    io.of('/').sockets.get(socketId)
-  );
+  return Array.from(socketIds)
+    .map((socketId) => io.of('/').sockets.get(socketId))
+    .filter((sock) => !!sock);
 }
 
 const AddPeerType = {
