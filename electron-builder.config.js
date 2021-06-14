@@ -23,7 +23,7 @@ const config = {
     version: version,
   },
   nsis: {
-    artifactName: '${productName}-Setup-${arch}-${version}.${ext}',
+    artifactName: '${productName}-Setup-${version}.${ext}',
   },
   mac: {
     hardenedRuntime: true,
