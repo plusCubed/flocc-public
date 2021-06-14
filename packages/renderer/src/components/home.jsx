@@ -132,7 +132,11 @@ function FocusListener({
 export function Home() {
   const database = useDatabase();
   const user = useUser().data;
-  const { displayName, email, photoURL, uid } = user;
+  const { uid } = user;
+
+  const displayName = useDatabaseObjectData(
+    database.ref(`users/${uid}/displayName`)
+  );
 
   const { socket, connected } = useSocket(SOCKET_ENDPOINT, user);
   const { roomId, joinRoom, leaveRoom, transitioningRef } = useSocketRoom(

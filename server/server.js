@@ -257,12 +257,16 @@ io.use(async (socket, next) => {
     uidToSocket[uid] = socket;
     log(`[${socket.id}] token verified`);
 
-    // set displayName in RTDB
+    // set displayName in RTDB (if no existing name set)
     admin
       .auth()
       .getUser(uid)
       .then((user) => {
-        return database.ref(`users/${uid}/displayName`).set(user.displayName);
+        return database
+          .ref(`users/${uid}/displayName`)
+          .transaction((existingName) => {
+            return !existingName ? user.displayName : existingName;
+          });
       })
       .catch((e) => console.error(e));
     next();
