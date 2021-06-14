@@ -125,7 +125,7 @@ function Room({ roomId, currentRoomId, connectionStates, joinRoom }) {
         />
       </div>
 
-      {isCurrentRoom && roomUserCount > 1 ? (
+      {/*{isCurrentRoom && roomUserCount > 1 ? (
         <button
           className="py-1 px-2 ml-1 text-gray-700 rounded focus:outline-none hover:bg-gray-200"
           onClick={toggleLock}
@@ -139,7 +139,7 @@ function Room({ roomId, currentRoomId, connectionStates, joinRoom }) {
             <LockOpenIcon width={16} height={16} />
           )}
         </button>
-      ) : null}
+      ) : null}*/}
 
       {isCurrentRoom && roomUserCount > 1 ? (
         <Button className="ml-1" onClick={leave}>
@@ -183,16 +183,19 @@ export function RoomList({
   );
 
   const friendRooms = useDatabaseObjectDataPartial('rooms', friendRoomIds);
-  const currentRoomLocked = friendRooms[currentRoomId]?.locked;
-  let tempRoomIds = [];
-
-  for (const [id, roomData] of Object.entries(friendRooms)) {
-    if (id === currentRoomId) {
-      tempRoomIds.splice(0, 0, id);
-    } else if (!roomData.locked && !currentRoomLocked) {
-      tempRoomIds.push(id);
+  const roomIds = useMemo(() => {
+    let roomIds = [];
+    for (const [id, roomData] of Object.entries(friendRooms)) {
+      if (id === currentRoomId) {
+        // current room at the top
+        roomIds.splice(0, 0, id);
+      } else if (!roomData.locked) {
+        // room not locked
+        roomIds.push(id);
+      }
     }
-  }
+    return roomIds;
+  }, [currentRoomId, friendRooms]);
 
   const inactiveFriends = friendDocEntries
     .filter((entry) => !isFriendInARoom(entry))
@@ -215,7 +218,7 @@ export function RoomList({
           <AddIcon width={16} height={16} />
         </Button>*/}
       </div>
-      {tempRoomIds.map((roomId) => (
+      {roomIds.map((roomId) => (
         <Room
           key={roomId}
           roomId={roomId}

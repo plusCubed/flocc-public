@@ -101,7 +101,7 @@ function FocusListener({
         } else {
           console.log('not idling: more than 1 person in room');
         }
-      }, 5 * 1000); // 5 min
+      }, 5 * 60 * 1000); // 5 min
     };
 
     if (document.hasFocus()) {
