@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { useDatabase, useUser } from 'reactfire';
+import { useDatabase } from 'reactfire';
 
 import { useDatabaseObjectData } from './useDatabase';
 import { usePrevious } from './usePrevious';
@@ -86,6 +86,6 @@ export function useSocketRoom(socket, connected) {
     roomId,
     joinRoom,
     leaveRoom,
-    transitioning: transitioningRef.current,
+    transitioningRef,
   };
 }

@@ -22,7 +22,7 @@ import { StatusIndicator } from './statusIndicator';
 const SOCKET_ENDPOINT =
   /*isDevelopment
   ? 'http://localhost:3010'
-  : */ 'https://server.flocc.app:8443';
+  :*/ 'https://server.flocc.app:8443';
 
 function MuteButton({ roomId, socket }) {
   const database = useDatabase();
@@ -36,21 +36,34 @@ function MuteButton({ roomId, socket }) {
     database.ref(`rooms/${roomId}/users`)
   ).length;
 
-  return roomUserCount > 1 ? (
+  const enabled = roomUserCount > 1;
+  return (
     <button
-      className="relative p-1 ml-1 text-gray-700 rounded focus:outline-none hover:bg-gray-200"
+      className={`has-tooltip p-1 ml-1 rounded focus:outline-none ${
+        enabled ? 'text-gray-700 hover:bg-gray-200' : 'text-gray-400'
+      }`}
       onClick={toggleMute}
+      disabled={!enabled}
     >
       {mute ? (
         <MatMicrophoneOffIcon width={20} height={20} />
       ) : (
         <MatMicrophoneIcon width={20} height={20} />
       )}
+      <div className="tooltip rounded shadow-lg p-2 px-4 text-gray-700 bg-gray-100 mt-2 whitespace-pre">
+        To control mute,{'\n'}get in a call!
+      </div>
     </button>
-  ) : null;
+  );
 }
 
-function FocusListener({ socket, roomId, transitioning, joinRoom, leaveRoom }) {
+function FocusListener({
+  socket,
+  roomId,
+  transitioningRef,
+  joinRoom,
+  leaveRoom,
+}) {
   const database = useDatabase();
   const roomUsers = useDatabaseListData(database.ref(`rooms/${roomId}/users`));
   const roomUserCount = roomUsers.length;
@@ -62,7 +75,7 @@ function FocusListener({ socket, roomId, transitioning, joinRoom, leaveRoom }) {
       if (!socket) return;
 
       socket.emit('active');
-      if (!roomId && !transitioning) {
+      if (!roomId && !transitioningRef.current) {
         console.log('joining new room on focus');
         joinRoom(null, false);
       }
@@ -77,16 +90,18 @@ function FocusListener({ socket, roomId, transitioning, joinRoom, leaveRoom }) {
       console.log('blur');
       if (!socket) return;
 
-      // not in a room => idle in 5 min
       timeoutId = setTimeout(async () => {
-        if (roomUserCount === 1) {
+        // only user in a room => idle
+        if (roomUserCount <= 1) {
           console.log('idle');
           socket.emit('idle');
-          leaveRoom().catch((e) => console.error(e));
+          if (roomUserCount === 1) {
+            leaveRoom().catch((e) => console.error(e));
+          }
         } else {
           console.log('not idling: more than 1 person in room');
         }
-      }, 5 * 60 * 1000); // 5 min
+      }, 5 * 1000); // 5 min
     };
 
     if (document.hasFocus()) {
@@ -109,7 +124,7 @@ function FocusListener({ socket, roomId, transitioning, joinRoom, leaveRoom }) {
     roomId,
     roomUserCount,
     socket,
-    transitioning,
+    transitioningRef,
   ]);
   return <></>;
 }
@@ -120,7 +135,7 @@ export function Home() {
   const { displayName, email, photoURL, uid } = user;
 
   const { socket, connected } = useSocket(SOCKET_ENDPOINT, user);
-  const { roomId, joinRoom, leaveRoom, transitioning } = useSocketRoom(
+  const { roomId, joinRoom, leaveRoom, transitioningRef } = useSocketRoom(
     socket,
     connected
   );
@@ -144,7 +159,7 @@ export function Home() {
           leaveRoom={leaveRoom}
           joinRoom={joinRoom}
           roomId={roomId}
-          transitioning={transitioning}
+          transitioningRef={transitioningRef}
         />
       </Suspense>
       {!connected ? (
@@ -165,12 +180,14 @@ export function Home() {
           </div>
           <div className="flex overflow-y-auto flex-col flex-1">
             <div className="flex-1 mt-2">
-              <RoomList
-                currentRoomId={roomId}
-                joinRoom={joinRoom}
-                leaveRoom={leaveRoom}
-                connectionStates={connectionStates}
-              />
+              <Suspense fallback={null}>
+                <RoomList
+                  currentRoomId={roomId}
+                  joinRoom={joinRoom}
+                  leaveRoom={leaveRoom}
+                  connectionStates={connectionStates}
+                />
+              </Suspense>
             </div>
           </div>
           <RoomRtc
@@ -178,7 +195,11 @@ export function Home() {
             mute={mute}
             onConnectionStatesChange={setConnectionStates}
           />
-          {roomId ? <Music currentRoomId={roomId} /> : null}
+          {roomId ? (
+            <Suspense fallback={null}>
+              <Music currentRoomId={roomId} />
+            </Suspense>
+          ) : null}
         </div>
       )}
     </div>

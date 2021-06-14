@@ -101,19 +101,20 @@ function Room({ roomId, currentRoomId, connectionStates, joinRoom }) {
     return null;
   }
 
-  const containerStyles = isCurrentRoom
-    ? ' border border-solid bg-gray-100 ' +
-      (locked ? ' border-red-500' : ' border-transparent')
-    : ' border border-solid hover:bg-gray-200 border-transparent';
+  let containerStyles =
+    'w-full flex items-center text-left focus:outline-none p-1.5 pl-3 mb-1 rounded border border-solid ';
+  if (isCurrentRoom) {
+    if (locked) {
+      containerStyles += 'bg-gray-100 border-red-500';
+    } else {
+      containerStyles += 'bg-gray-100 border-transparent';
+    }
+  } else {
+    containerStyles += 'hover:bg-gray-200 border-transparent';
+  }
 
   return (
-    <div
-      className={
-        'w-full flex items-center text-left focus:outline-none p-1.5 pl-3 mb-1 rounded' +
-        containerStyles
-      }
-      onClick={join}
-    >
+    <div className={containerStyles} onClick={join}>
       <div className="flex-1 self-center">
         <span className="font-semibold">{roomName}</span>
         <RoomUsers
@@ -198,6 +199,12 @@ export function RoomList({
     .filter(([friendUid, friendDoc]) => {
       return friendDoc.status !== 'ACTIVE';
     })
+    .sort(([friendUid1, friendDoc1], [friendUid2, friendDoc2]) => {
+      return (
+        friendDoc1.status.localeCompare(friendDoc2.status) ||
+        friendDoc1.displayName.localeCompare(friendDoc2.displayName)
+      );
+    })
     .map(([friendUid, friendDoc]) => friendUid);
 
   return (
@@ -218,10 +225,10 @@ export function RoomList({
           joinRoom={joinRoom}
         />
       ))}
-      <SectionLabel className="flex-1 mt-4">Inactive</SectionLabel>
+      <SectionLabel className="flex-1 mt-4 mb-1">Inactive</SectionLabel>
       {inactiveFriends.map((friendUid) => (
         <Suspense key={friendUid} fallback={<div>Loading</div>}>
-          <div className="w-full flex items-center text-left focus:outline-none p-1.5 pl-3 mb-1 rounded">
+          <div className="w-full flex items-center text-left focus:outline-none px-1.5 pl-3 mb-1 rounded">
             <RoomUser uid={friendUid} />
           </div>
         </Suspense>

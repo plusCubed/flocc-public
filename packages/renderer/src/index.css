@@ -56,3 +56,11 @@ input[type='range']::-webkit-slider-thumb:active {
   cursor: pointer;
   background-color: #a0aec0;
 }
+
+.tooltip {
+  @apply invisible absolute;
+}
+
+.has-tooltip:hover .tooltip {
+  @apply visible z-50
+}
