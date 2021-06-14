@@ -47,10 +47,10 @@ export function HelpPopup({ signOut }) {
                   Active status{' '}
                   <StatusIndicator status="ACTIVE" className="mr-1.5" />
                   <span className="italic">means</span> active!
-                  <ul className="list-circle list-outside ml-4">
+                  <ul className="list-circle list-outside ml-6">
                     <li>Active = the Flocc app is visible</li>
                     <li>Any friends can immediately jump in a VC with you</li>
-                    <ul className="list-circle list-outside ml-4">
+                    <ul className="list-circle list-outside ml-6">
                       <li>(but you'll start muted)</li>
                     </ul>
                     <li>You can join any active VC a friend is in</li>
