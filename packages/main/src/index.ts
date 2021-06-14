@@ -6,6 +6,7 @@ import {
   ipcMain,
   session,
   systemPreferences,
+  shell,
 } from 'electron';
 import ElectronGoogleOAuth2 from '@getstation/electron-google-oauth2';
 import { TrayGenerator } from '/@/tray';
@@ -97,7 +98,7 @@ const createWindow = async () => {
   const openExternalListener = (e, url) => {
     if (new URL(url).hostname !== 'localhost') {
       e.preventDefault();
-      require('electron').shell.openExternal(url);
+      shell.openExternal(url);
     }
   };
   mainWindow.webContents.on('will-navigate', openExternalListener);

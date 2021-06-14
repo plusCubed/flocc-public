@@ -155,6 +155,8 @@ export function Home() {
   const mute = useDatabaseObjectData(database.ref(`users/${uid}/mute`));
   const status = useDatabaseObjectData(database.ref(`users/${uid}/status`));
 
+  console.log('room id', roomId);
+
   return (
     <div className="p-2 mx-auto w-full max-w-lg h-full">
       <Suspense fallback={null}>
@@ -201,7 +203,7 @@ export function Home() {
           />
           {roomId ? (
             <Suspense fallback={null}>
-              <Music currentRoomId={roomId} />
+              <Music currentRoomId={roomId} socket={socket} />
             </Suspense>
           ) : null}
         </div>

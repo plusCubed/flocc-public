@@ -20,7 +20,7 @@ import { electronApi } from '../util/electronApi';
 import { MusicIcon, SkipNextIcon } from './icons';
 import { Button } from './ui';
 
-export function Music({ currentRoomId }) {
+export function Music({ currentRoomId, socket }) {
   const config = useMemo(() => {
     return {
       youtube: {
@@ -82,11 +82,9 @@ export function Music({ currentRoomId }) {
     [musicDbRef, musicSyncDbRef]
   );
 
-  const [volume, setVolume] = useState(0);
-  useEffect(() => {
-    const initialVolume = localStorage.getItem('musicVolume') || 50;
-    setVolume(parseInt(initialVolume));
-  }, []);
+  const [volume, setVolume] = useState(
+    parseInt(localStorage.getItem('musicVolume') || 50)
+  );
   useEffect(() => {
     localStorage.setItem('musicVolume', volume.toString());
   }, [volume]);
@@ -225,8 +223,10 @@ export function Music({ currentRoomId }) {
               <span className="text-gray-400 text-sm">{vid.query}</span>
             ) : (
               <a
-                href={vid.url}
-                className="hover:text-blue-500 hover:underline text-sm"
+                /*href={vid.url}*/
+                className={
+                  'text-sm' /* + " hover:text-blue-500 hover:underline"*/
+                }
                 title={vid.title}
               >
                 {vid.title}
