@@ -9,7 +9,7 @@ export function StatusIndicator({ status, className, ...props }) {
   const statusColor = statusToColor[status];
   return (
     <div
-      className={`rounded-full w-2 h-2 ${statusColor} ${className}`}
+      className={`inline-block rounded-full w-2 h-2 ${statusColor} ${className}`}
       {...props}
     />
   );

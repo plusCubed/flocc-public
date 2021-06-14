@@ -236,14 +236,17 @@ export function Music({ currentRoomId, socket }) {
         ))}
       </ul>
 
-      <div className="flex flex-row rounded bg-gray-100 border-0">
+      <div className="flex flex-row rounded bg-gray-100 border-0 items-center">
         {isElectron() ? (
-          <input
-            className="py-1 px-2 flex-1 block text-sm bg-transparent border-0 ring-0 focus:border-0 focus:ring-0"
-            placeholder="Search & queue music"
-            type="text"
-            onKeyUp={handleSearchInput}
-          />
+          <>
+            <MusicIcon className="w-4 h-4 text-gray-500 ml-2" />
+            <input
+              className="py-1 px-2 flex-1 block text-sm bg-transparent border-0 ring-0 focus:border-0 focus:ring-0"
+              placeholder="Search & queue music"
+              type="text"
+              onKeyUp={handleSearchInput}
+            />
+          </>
         ) : (
           <div className="py-1 px-2 flex-1 block text-sm">
             Music queueing is available only on the desktop Flocc app.

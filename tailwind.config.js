@@ -35,6 +35,14 @@ module.exports = {
       pink: colors.pink,
       rose: colors.rose,
     },
+    listStyleType: {
+      none: 'none',
+      disc: 'disc',
+      decimal: 'decimal',
+      circle: 'circle',
+      square: 'square',
+      roman: 'upper-roman',
+    },
   },
   variants: [
     'responsive',

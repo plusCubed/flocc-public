@@ -13,6 +13,7 @@ import { useUid } from '../hooks/useUid';
 
 import { FriendsDropdown } from './friendsDropdown';
 import { MatMicrophoneIcon, MatMicrophoneOffIcon } from './icons';
+import { HelpPopup } from './infoDropdown';
 import { Music } from './music';
 import { RoomList } from './roomList';
 import { RoomRtc } from './roomRtc';
@@ -57,7 +58,7 @@ function MuteButton({ roomId, socket }) {
   );
 }
 
-function FocusListener({
+function VisibilityListener({
   socket,
   roomId,
   transitioningRef,
@@ -66,12 +67,12 @@ function FocusListener({
 }) {
   const database = useDatabase();
   const roomUsers = useDatabaseListData(database.ref(`rooms/${roomId}/users`));
-  const roomUserCount = roomUsers.length;
+  const roomUserCount = roomUsers.length; // reset visibility detection when room user count changes
 
   useEffect(() => {
     let timeoutId = null;
-    const onfocus = (event) => {
-      console.log('focus');
+    const onVisible = () => {
+      console.log('visible');
       if (!socket) return;
 
       socket.emit('active');
@@ -86,8 +87,8 @@ function FocusListener({
       }
     };
 
-    const onblur = async (event) => {
-      console.log('blur');
+    const onHidden = async () => {
+      console.log('hidden');
       if (!socket) return;
 
       timeoutId = setTimeout(async () => {
@@ -104,17 +105,20 @@ function FocusListener({
       }, 5 * 60 * 1000); // 5 min
     };
 
-    if (document.hasFocus()) {
-      onfocus();
-    } else {
-      onblur();
-    }
+    const handleVisibilityChange = () => {
+      if (document['hidden']) {
+        onHidden();
+      } else {
+        onVisible();
+      }
+    };
 
-    window.addEventListener('focus', onfocus);
-    window.addEventListener('blur', onblur);
+    // do initial detection
+    handleVisibilityChange();
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
-      window.removeEventListener('focus', onfocus);
-      window.removeEventListener('blur', onblur);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, [
@@ -160,7 +164,7 @@ export function Home() {
   return (
     <div className="p-2 mx-auto w-full max-w-lg h-full">
       <Suspense fallback={null}>
-        <FocusListener
+        <VisibilityListener
           socket={socket}
           leaveRoom={leaveRoom}
           joinRoom={joinRoom}
@@ -195,6 +199,10 @@ export function Home() {
                 />
               </Suspense>
             </div>
+          </div>
+          <div className="flex flex-row">
+            <div className="flex-1" />
+            <HelpPopup />
           </div>
           <RoomRtc
             socket={socket}
