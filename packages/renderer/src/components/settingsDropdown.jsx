@@ -32,7 +32,7 @@ export function SettingsDropdown({ signOut }) {
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <Popover.Overlay className="bg-overlay fixed inset-0" />
+            <Popover.Overlay className="fixed inset-0 bg-overlay" />
           </Transition>
           <Popover.Button
             className={
@@ -51,20 +51,20 @@ export function SettingsDropdown({ signOut }) {
             leaveFrom="transform scale-100 opacity-100"
             leaveTo="transform scale-95 opacity-0"
           >
-            <Popover.Panel className="absolute right-0 w-64 mt-2 origin-top-right bg-white border border-gray-200 rounded-md shadow-lg outline-none p-2">
+            <Popover.Panel className="absolute right-0 p-2 mt-2 w-64 bg-white rounded-md border border-gray-200 shadow-lg origin-top-right outline-none">
               <AudioSelector
                 kind="audioinput"
-                icon={<MicrophoneIcon className="w-4 h-4 mr-1" />}
+                icon={<MicrophoneIcon className="mr-1 w-4 h-4" />}
                 device={inputDevice}
                 onDeviceChange={setInputDevice}
               />
               <AudioSelector
                 kind="audiooutput"
-                icon={<SpeakerIcon className="w-4 h-4 mr-1" />}
+                icon={<SpeakerIcon className="mr-1 w-4 h-4" />}
                 device={outputDevice}
                 onDeviceChange={setOutputDevice}
               />
-              <div className="flex flex-row align-baseline  mt-1">
+              <div className="flex flex-row mt-1 align-baseline">
                 <Button onClick={signOut} className="text-sm">
                   Sign out
                 </Button>

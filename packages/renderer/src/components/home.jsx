@@ -7,7 +7,7 @@ import {
   useDatabaseListData,
   useDatabaseObjectData,
 } from '../hooks/useDatabase';
-import { useSocket } from '../hooks/useSocket';
+import { useSocket, useSocketListener } from '../hooks/useSocket';
 import { useSocketRoom } from '../hooks/useSocketRoom';
 import { useUid } from '../hooks/useUid';
 
@@ -20,10 +20,11 @@ import { RoomRtc } from './roomRtc';
 import { SettingsDropdown } from './settingsDropdown';
 import { StatusIndicator } from './statusIndicator';
 
+const LOCAL_SERVER = true;
 const SOCKET_ENDPOINT =
-  /*isDevelopment
-  ? 'http://localhost:3010'
-  :*/ 'https://server.flocc.app:8443';
+  isDevelopment && LOCAL_SERVER
+    ? 'http://localhost:3010'
+    : 'https://server.flocc.app:8443';
 
 function MuteButton({ roomId, socket }) {
   const database = useDatabase();
@@ -91,18 +92,21 @@ function VisibilityListener({
       console.log('hidden');
       if (!socket) return;
 
-      timeoutId = setTimeout(async () => {
-        // only user in a room => idle
-        if (roomUserCount <= 1) {
-          console.log('idle');
-          socket.emit('idle');
-          if (roomUserCount === 1) {
-            leaveRoom().catch((e) => console.error(e));
+      timeoutId = setTimeout(
+        async () => {
+          // only user in a room => idle
+          if (roomUserCount <= 1) {
+            console.log('idle');
+            socket.emit('idle');
+            if (roomUserCount === 1) {
+              leaveRoom().catch((e) => console.error(e));
+            }
+          } else {
+            console.log('not idling: more than 1 person in room');
           }
-        } else {
-          console.log('not idling: more than 1 person in room');
-        }
-      }, 5 * 60 * 1000); // 5 min
+        },
+        isDevelopment ? 10 * 1000 : 5 * 60 * 1000
+      ); // 5 min
     };
 
     const handleVisibilityChange = () => {
@@ -133,6 +137,32 @@ function VisibilityListener({
   return <></>;
 }
 
+function usePing(socket, database) {
+  const ping = useCallback(
+    (uid) => {
+      if (!socket) return;
+
+      socket.emit('ping', { peerUid: uid });
+    },
+    [socket]
+  );
+  const pinged = useCallback(
+    async ({ peerUid, peerSocketId }) => {
+      const name = (
+        await database.ref(`users/${peerUid}/displayName`).once('value')
+      ).val();
+      console.log(`pinged by ${name}`);
+      const notification = new Notification(`${name} pinged you!`);
+      setTimeout(() => {
+        notification.close();
+      }, 5000);
+    },
+    [database]
+  );
+  useSocketListener(socket, 'pinged', pinged);
+  return ping;
+}
+
 export function Home() {
   const database = useDatabase();
   const user = useUser().data;
@@ -147,6 +177,7 @@ export function Home() {
     socket,
     connected
   );
+  const ping = usePing(socket, database);
 
   const auth = useAuth();
   const signOut = useCallback(async () => {
@@ -195,6 +226,7 @@ export function Home() {
                   currentRoomId={roomId}
                   joinRoom={joinRoom}
                   leaveRoom={leaveRoom}
+                  ping={ping}
                   connectionStates={connectionStates}
                 />
               </Suspense>

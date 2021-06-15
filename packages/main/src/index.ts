@@ -7,6 +7,7 @@ import {
   session,
   systemPreferences,
   shell,
+  Notification,
 } from 'electron';
 import ElectronGoogleOAuth2 from '@getstation/electron-google-oauth2';
 import { TrayGenerator } from '/@/tray';

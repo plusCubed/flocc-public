@@ -358,4 +358,23 @@ io.on('connection', (socket) => {
       console.error(e);
     }
   });
+
+  socket.on('ping', (msg) => {
+    try {
+      const { peerUid } = msg;
+      const peerSocket = uidToSocket[peerUid];
+      if (!peerSocket) {
+        console.error(`[${socket.id}] ping failed, invalid peerUid`, peerUid);
+        return;
+      }
+      info(`[${socket.id}] ping [${peerSocket.id}]`);
+
+      socket.to(peerSocket.id).emit('pinged', {
+        peerSocketId: socket.id,
+        peerUid: uid,
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  });
 });

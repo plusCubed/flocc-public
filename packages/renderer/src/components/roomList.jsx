@@ -13,16 +13,11 @@ import {
 import { useUid } from '../hooks/useUid';
 import { playSound } from '../util/playSound';
 
-import {
-  ExitIcon,
-  LockClosedIcon,
-  LockOpenIcon,
-  MatMicrophoneOffIcon,
-} from './icons';
+import { BellIcon, ExitIcon, MatMicrophoneOffIcon } from './icons';
 import { StatusIndicator } from './statusIndicator';
 import { Button, SectionLabel } from './ui';
 
-function RoomUser({ currentRoomId, roomId, uid, connectionState }) {
+function RoomUser({ ping, currentRoomId, roomId, uid, connectionState }) {
   const database = useDatabase();
   const currentUid = useUid();
 
@@ -32,15 +27,24 @@ function RoomUser({ currentRoomId, roomId, uid, connectionState }) {
   const nameClass = connecting ? 'text-gray-500' : '';
 
   const userDoc = useDatabaseObjectData(database.ref(`users/${uid}`));
+  const status = userDoc?.status;
 
   return (
     <div className="flex items-center h-6">
-      <StatusIndicator status={userDoc?.status} />
+      <StatusIndicator status={status} />
       <div className={`px-2 ${nameClass}`}>{userDoc?.displayName ?? '...'}</div>
       <div className="text-gray-400">
         {isCurrentRoom && userDoc?.mute ? (
           <MatMicrophoneOffIcon width={18} height={18} />
         ) : null}
+      </div>
+      <div
+        className="relative p-1 text-gray-600 rounded focus:outline-none hover:bg-gray-200"
+        onClick={() => {
+          ping(uid);
+        }}
+      >
+        {status === 'IDLE' ? <BellIcon width={18} height={18} /> : null}
       </div>
     </div>
   );
@@ -154,6 +158,7 @@ export function RoomList({
   currentRoomId,
   joinRoom,
   leaveRoom,
+  ping,
   connectionStates,
 }) {
   const uid = useUid();
@@ -232,7 +237,7 @@ export function RoomList({
       {inactiveFriends.map((friendUid) => (
         <Suspense key={friendUid} fallback={<div>Loading</div>}>
           <div className="w-full flex items-center text-left focus:outline-none px-1.5 pl-3 mb-1 rounded">
-            <RoomUser uid={friendUid} />
+            <RoomUser uid={friendUid} ping={ping} />
           </div>
         </Suspense>
       ))}

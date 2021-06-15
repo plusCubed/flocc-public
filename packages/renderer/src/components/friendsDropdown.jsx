@@ -36,7 +36,7 @@ export function FriendsDropdown() {
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <Popover.Overlay className="bg-overlay fixed inset-0" />
+            <Popover.Overlay className="fixed inset-0 bg-overlay" />
           </Transition>
           <Popover.Button
             className={
@@ -60,7 +60,7 @@ export function FriendsDropdown() {
             leaveFrom="transform scale-100 opacity-100"
             leaveTo="transform scale-95 opacity-0"
           >
-            <Popover.Panel className="absolute right-0 w-64 mt-2 origin-top-right bg-white border border-gray-200 rounded-md shadow-lg outline-none p-4">
+            <Popover.Panel className="absolute right-0 p-4 mt-2 w-64 bg-white rounded-md border border-gray-200 shadow-lg origin-top-right outline-none">
               <Suspense fallback={<div>Loading...</div>}>
                 <FriendRequests />
                 <Friends />
