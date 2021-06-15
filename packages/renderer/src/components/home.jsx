@@ -146,6 +146,8 @@ function usePing(socket, database) {
     },
     [socket]
   );
+
+  // Only works on desktop for now - web notifications require workers
   const pinged = useCallback(
     async ({ peerUid, peerSocketId }) => {
       const name = (

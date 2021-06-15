@@ -1,5 +1,13 @@
-import React, { Suspense, useCallback, useMemo } from 'react';
+import React, {
+  Fragment,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
+import { Dialog, Transition } from '@headlessui/react';
 import { useDatabase } from 'reactfire';
 import { useRecoilValue } from 'recoil';
 
@@ -13,9 +21,39 @@ import {
 import { useUid } from '../hooks/useUid';
 import { playSound } from '../util/playSound';
 
-import { BellIcon, ExitIcon, MatMicrophoneOffIcon } from './icons';
+import { BellIcon, CloseIcon, ExitIcon, MatMicrophoneOffIcon } from './icons';
 import { StatusIndicator } from './statusIndicator';
 import { Button, SectionLabel } from './ui';
+
+function PingSentToast({ open, setOpen, name }) {
+  return (
+    <Transition
+      appear
+      show={open}
+      enter="transition duration-100 ease-out"
+      enterFrom="transform scale-95 opacity-0"
+      enterTo="transform scale-100 opacity-100"
+      leave="transition duration-75 ease-out"
+      leaveFrom="transform scale-100 opacity-100"
+      leaveTo="transform scale-95 opacity-0"
+      as={Fragment}
+    >
+      <Dialog
+        className="fixed bottom-10 bg-gray-50 rounded shadow-md m-4 pl-4 pr-3 py-3 flex"
+        onClose={() => setOpen(false)}
+      >
+        <div>Pinged {name}</div>
+        <div className="flex-1 w-5" />
+        <button
+          className="focus:outline-none text-gray-400 hover:text-gray-600 active:text-gray-800"
+          onClick={() => setOpen(false)}
+        >
+          <CloseIcon className="w-5 h-5" />
+        </button>
+      </Dialog>
+    </Transition>
+  );
+}
 
 function RoomUser({ ping, currentRoomId, roomId, uid, connectionState }) {
   const database = useDatabase();
@@ -29,6 +67,19 @@ function RoomUser({ ping, currentRoomId, roomId, uid, connectionState }) {
   const userDoc = useDatabaseObjectData(database.ref(`users/${uid}`));
   const status = userDoc?.status;
 
+  const [pingSent, setPingSent] = useState(false);
+  useEffect(() => {
+    let timeout;
+    if (pingSent) {
+      timeout = setTimeout(() => {
+        setPingSent(false);
+      }, 1000);
+    }
+    return () => {
+      if (timeout) clearTimeout(timeout);
+    };
+  }, [pingSent]);
+
   return (
     <div className="flex items-center h-6">
       <StatusIndicator status={status} />
@@ -38,14 +89,24 @@ function RoomUser({ ping, currentRoomId, roomId, uid, connectionState }) {
           <MatMicrophoneOffIcon width={18} height={18} />
         ) : null}
       </div>
-      <div
-        className="relative p-1 text-gray-600 rounded focus:outline-none hover:bg-gray-200"
-        onClick={() => {
-          ping(uid);
-        }}
-      >
-        {status === 'IDLE' ? <BellIcon width={18} height={18} /> : null}
-      </div>
+
+      {!!ping ? (
+        <div
+          className="p-1 text-gray-600 rounded focus:outline-none hover:bg-gray-200 active:bg-gray-300"
+          onClick={() => {
+            ping(uid);
+            setPingSent(true);
+          }}
+        >
+          {status === 'IDLE' ? <BellIcon width={18} height={18} /> : null}
+        </div>
+      ) : null}
+
+      <PingSentToast
+        open={pingSent}
+        setOpen={setPingSent}
+        name={userDoc?.displayName}
+      />
     </div>
   );
 }

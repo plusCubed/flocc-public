@@ -7,12 +7,12 @@ import {
   session,
   systemPreferences,
   shell,
-  Notification,
 } from 'electron';
 import ElectronGoogleOAuth2 from '@getstation/electron-google-oauth2';
 import { TrayGenerator } from '/@/tray';
 import ytsr from 'ytsr';
 import Positioner from 'electron-positioner';
+import isFirstRun from 'electron-first-run';
 import googleOAuthConfig from './secrets/googleOAuthConfig';
 
 const isSingleInstance = app.requestSingleInstanceLock();
@@ -123,7 +123,7 @@ const createWindow = async () => {
           'file://' + __dirname
         ).toString();
 
-  if (env.MODE !== 'development') {
+  if (env.PROD) {
     // workaround for youtube
     session.defaultSession.protocol.interceptFileProtocol(
       'http',
@@ -171,6 +171,15 @@ if (env.PROD) {
     .then(() => import('electron-updater'))
     .then(({ autoUpdater }) => autoUpdater.checkForUpdatesAndNotify())
     .catch((e) => console.error('Failed check updates:', e));
+}
+
+if (env.PROD && isFirstRun()) {
+  app.whenReady().then(() => {
+    app.setLoginItemSettings({
+      openAtLogin: true,
+      openAsHidden: true,
+    });
+  });
 }
 
 const electronOAuth = new ElectronGoogleOAuth2(
