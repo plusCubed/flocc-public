@@ -20,7 +20,7 @@ import { RoomRtc } from './roomRtc';
 import { SettingsDropdown } from './settingsDropdown';
 import { StatusIndicator } from './statusIndicator';
 
-const LOCAL_SERVER = true;
+const LOCAL_SERVER = false;
 const SOCKET_ENDPOINT =
   isDevelopment && LOCAL_SERVER
     ? 'http://localhost:3010'
