@@ -233,13 +233,15 @@ export function RoomList({
     [friendDocs]
   );
 
-  const isFriendInARoom = ([friendUid, friendDoc]) => {
-    return friendDoc.room;
-  };
   const friendRoomIdsList = useMemo(
     () =>
       friendDocEntries
-        .filter(isFriendInARoom)
+        .filter(([friendUid, friendDoc]) => {
+          return friendDoc.status === 'ACTIVE';
+        })
+        .filter(([friendUid, friendDoc]) => {
+          return !!friendDoc.room;
+        })
         .map(([friendUid, friendDoc]) => friendDoc.room),
     [friendDocEntries]
   );
@@ -264,7 +266,6 @@ export function RoomList({
   }, [currentRoomId, friendRooms]);
 
   const inactiveFriends = friendDocEntries
-    .filter((entry) => !isFriendInARoom(entry))
     .filter(([friendUid, friendDoc]) => {
       return friendDoc.status !== 'ACTIVE';
     })
