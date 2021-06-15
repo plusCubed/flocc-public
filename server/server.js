@@ -25,6 +25,8 @@ const io = new Server(httpServer, {
     credentials: true,
   },
   allowEIO3: true,
+  pingInterval: 5000,
+  pingTimeout: 2000,
 });
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
