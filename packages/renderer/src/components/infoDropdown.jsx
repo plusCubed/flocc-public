@@ -42,24 +42,26 @@ export function HelpPopup({ signOut }) {
             <Popover.Panel className="absolute right-0 bottom-10 w-80 mt-2 origin-bottom-right bg-white border border-gray-200 rounded-md shadow-lg outline-none p-4">
               <div className="font-semibold">How Flocc works</div>
 
-              <ul className="list-disc list-outside ml-4">
+              <ul className="list-square list-outside ml-4">
                 <li>
                   Active status{' '}
                   <StatusIndicator status="ACTIVE" className="mr-1.5" />
                   <span className="italic">means</span> active!
                   <ul className="list-circle list-outside ml-6">
                     <li>Active = the Flocc app is visible</li>
-                    <li>Any friends can immediately jump in a VC with you</li>
+                    <li>Any friend can immediately jump in a VC with you</li>
                     <ul className="list-circle list-outside ml-6">
                       <li>(but you'll start muted)</li>
                     </ul>
-                    <li>You can join any active VC a friend is in</li>
                   </ul>
                 </li>
 
                 <li>
                   5 minutes after hiding the app, you become idle{' '}
                   <StatusIndicator status="IDLE" className="mr-1.5" />
+                  <ul className="list-circle list-outside ml-6">
+                    <li>Friends can still ping you</li>
+                  </ul>
                 </li>
                 <li>Try queueing some music! 🎵</li>
               </ul>

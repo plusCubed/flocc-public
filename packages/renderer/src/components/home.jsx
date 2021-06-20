@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useState, Suspense } from 'react';
 
 import { useAuth, useDatabase, useUser } from 'reactfire';
+import { useRecoilValue } from 'recoil';
 
+import pingedSound from '../../assets/sounds/nudge.mp3';
+import { audioOutputAtom } from '../atoms/audioDeviceAtom';
 import { isDevelopment } from '../constants/isDevelopment';
 import {
   useDatabaseListData,
@@ -10,6 +13,7 @@ import {
 import { useSocket, useSocketListener } from '../hooks/useSocket';
 import { useSocketRoom } from '../hooks/useSocketRoom';
 import { useUid } from '../hooks/useUid';
+import { playSound } from '../util/playSound';
 
 import { FriendsDropdown } from './friendsDropdown';
 import { MatMicrophoneIcon, MatMicrophoneOffIcon } from './icons';
@@ -19,6 +23,7 @@ import { RoomList } from './roomList';
 import { RoomRtc } from './roomRtc';
 import { SettingsDropdown } from './settingsDropdown';
 import { StatusIndicator } from './statusIndicator';
+import { Toast } from './toast';
 
 const LOCAL_SERVER = false;
 const SOCKET_ENDPOINT =
@@ -65,13 +70,15 @@ function VisibilityListener({
   transitioningRef,
   joinRoom,
   leaveRoom,
+  clearPings,
 }) {
   const database = useDatabase();
   const roomUsers = useDatabaseListData(database.ref(`rooms/${roomId}/users`));
   const roomUserCount = roomUsers.length; // reset visibility detection when room user count changes
 
   useEffect(() => {
-    let timeoutId = null;
+    let idleTimeoutId = null;
+    let pingTimeoutId = null;
     const onVisible = () => {
       console.log('visible');
       if (!socket) return;
@@ -82,17 +89,19 @@ function VisibilityListener({
         joinRoom(null, false);
       }
 
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-        timeoutId = null;
+      if (idleTimeoutId) {
+        clearTimeout(idleTimeoutId);
+        idleTimeoutId = null;
       }
+
+      pingTimeoutId = setTimeout(clearPings, 5000);
     };
 
     const onHidden = async () => {
       console.log('hidden');
       if (!socket) return;
 
-      timeoutId = setTimeout(
+      idleTimeoutId = setTimeout(
         async () => {
           // only user in a room => idle
           if (roomUserCount <= 1) {
@@ -123,9 +132,11 @@ function VisibilityListener({
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      if (timeoutId) clearTimeout(timeoutId);
+      if (idleTimeoutId != null) clearTimeout(idleTimeoutId);
+      if (pingTimeoutId != null) clearTimeout(pingTimeoutId);
     };
   }, [
+    clearPings,
     database,
     joinRoom,
     leaveRoom,
@@ -138,31 +149,78 @@ function VisibilityListener({
 }
 
 function usePing(socket, database) {
+  const outputDevice = useRecoilValue(audioOutputAtom);
   const ping = useCallback(
     (uid) => {
       if (!socket) return;
 
       socket.emit('ping', { peerUid: uid });
+      playSound(pingedSound, outputDevice);
     },
-    [socket]
+    [outputDevice, socket]
   );
 
+  const [incomingPings, setIncomingPings] = useState([]);
+  const clearPings = () => {
+    setIncomingPings((pings) => (pings.length > 0 ? [] : pings));
+  };
+
+  const [justPinged, setJustPinged] = useState(false);
+
   // Only works on desktop for now - web notifications require workers
-  const pinged = useCallback(
+  const onPinged = useCallback(
     async ({ peerUid, peerSocketId }) => {
       const name = (
         await database.ref(`users/${peerUid}/displayName`).once('value')
       ).val();
       console.log(`pinged by ${name}`);
-      const notification = new Notification(`${name} pinged you!`);
+      const text = `${name} pinged you!`;
+      playSound(pingedSound, outputDevice);
+
+      const seen = !document['hidden'];
+
+      let notification = null;
+      if (!seen) {
+        notification = new Notification(text, {
+          silent: true,
+        });
+      }
+
+      setJustPinged(true);
       setTimeout(() => {
-        notification.close();
+        if (seen) {
+          notification?.close();
+          setIncomingPings((pings) => {
+            // remove first instance of the text
+            const idx = pings.findIndex((p) => p.startsWith(text));
+            const newPings = [...pings];
+            newPings.splice(idx, 1);
+            return newPings;
+          });
+        }
       }, 5000);
+
+      setIncomingPings((pings) => {
+        return [...pings, text];
+      });
     },
-    [database]
+    [database, outputDevice]
   );
-  useSocketListener(socket, 'pinged', pinged);
-  return ping;
+  useSocketListener(socket, 'pinged', onPinged);
+
+  useEffect(() => {
+    let timeout;
+    if (justPinged) {
+      timeout = setTimeout(() => {
+        setJustPinged(false);
+      }, 200);
+    }
+    return () => {
+      if (timeout) clearTimeout(timeout);
+    };
+  }, [justPinged]);
+
+  return { ping, incomingPings, clearPings, justPinged };
 }
 
 export function Home() {
@@ -179,7 +237,10 @@ export function Home() {
     socket,
     connected
   );
-  const ping = usePing(socket, database);
+  const { ping, incomingPings, clearPings, justPinged } = usePing(
+    socket,
+    database
+  );
 
   const auth = useAuth();
   const signOut = useCallback(async () => {
@@ -194,8 +255,28 @@ export function Home() {
 
   console.log('room id', roomId);
 
+  let pingToast;
+  if (incomingPings.length > 0) {
+    const incomingPingMap = {};
+    for (const p of incomingPings) {
+      if (!(p in incomingPingMap)) incomingPingMap[p] = 0;
+      incomingPingMap[p] += 1;
+    }
+    let totalText = '';
+    for (const [text, times] of Object.entries(incomingPingMap)) {
+      totalText += `${text} ${times > 1 ? `(${times})` : ''}\n`;
+    }
+    pingToast = <Toast text={totalText} dismiss={() => clearPings()} />;
+  } else {
+    pingToast = null;
+  }
+
   return (
-    <div className="p-2 mx-auto w-full max-w-lg h-full">
+    <div
+      className={`p-2 mx-auto w-full max-w-lg h-full ${
+        justPinged ? 'shake' : ''
+      }`}
+    >
       <Suspense fallback={null}>
         <VisibilityListener
           socket={socket}
@@ -203,6 +284,7 @@ export function Home() {
           joinRoom={joinRoom}
           roomId={roomId}
           transitioningRef={transitioningRef}
+          clearPings={clearPings}
         />
       </Suspense>
       {!connected ? (
@@ -243,6 +325,9 @@ export function Home() {
             mute={mute}
             onConnectionStatesChange={setConnectionStates}
           />
+
+          {pingToast}
+
           {roomId ? (
             <Suspense fallback={null}>
               <Music currentRoomId={roomId} socket={socket} />

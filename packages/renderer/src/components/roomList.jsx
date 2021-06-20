@@ -1,5 +1,4 @@
 import React, {
-  Fragment,
   Suspense,
   useCallback,
   useEffect,
@@ -7,7 +6,6 @@ import React, {
   useState,
 } from 'react';
 
-import { Dialog, Transition } from '@headlessui/react';
 import { useDatabase } from 'reactfire';
 import { useRecoilValue } from 'recoil';
 
@@ -21,47 +19,17 @@ import {
 import { useUid } from '../hooks/useUid';
 import { playSound } from '../util/playSound';
 
-import { BellIcon, CloseIcon, ExitIcon, MatMicrophoneOffIcon } from './icons';
+import { BellIcon, ExitIcon, MatMicrophoneOffIcon } from './icons';
 import { StatusIndicator } from './statusIndicator';
 import { Button, SectionLabel } from './ui';
 
-function PingSentToast({ open, setOpen, name }) {
-  return (
-    <Transition
-      appear
-      show={open}
-      enter="transition duration-100 ease-out"
-      enterFrom="transform scale-95 opacity-0"
-      enterTo="transform scale-100 opacity-100"
-      leave="transition duration-75 ease-out"
-      leaveFrom="transform scale-100 opacity-100"
-      leaveTo="transform scale-95 opacity-0"
-      as={Fragment}
-    >
-      <Dialog
-        className="fixed bottom-10 bg-gray-50 rounded shadow-md m-4 pl-4 pr-3 py-3 flex"
-        onClose={() => setOpen(false)}
-      >
-        <div>Pinged {name}</div>
-        <div className="flex-1 w-5" />
-        <button
-          className="focus:outline-none text-gray-400 hover:text-gray-600 active:text-gray-800"
-          onClick={() => setOpen(false)}
-        >
-          <CloseIcon className="w-5 h-5" />
-        </button>
-      </Dialog>
-    </Transition>
-  );
-}
-
 function RoomUser({ ping, currentRoomId, roomId, uid, connectionState }) {
   const database = useDatabase();
-  const currentUid = useUid();
+  const selfUid = useUid();
 
   const isCurrentRoom = roomId && roomId === currentRoomId;
   const connecting =
-    isCurrentRoom && currentUid !== uid && connectionState !== 'connected';
+    isCurrentRoom && selfUid !== uid && connectionState !== 'connected';
   const nameClass = connecting ? 'text-gray-500' : '';
 
   const userDoc = useDatabaseObjectData(database.ref(`users/${uid}`));
@@ -73,15 +41,30 @@ function RoomUser({ ping, currentRoomId, roomId, uid, connectionState }) {
     if (pingSent) {
       timeout = setTimeout(() => {
         setPingSent(false);
-      }, 1000);
+      }, 200);
     }
     return () => {
       if (timeout) clearTimeout(timeout);
     };
   }, [pingSent]);
 
+  const [hover, setHover] = useState(false);
+
+  const showPingButton =
+    !!ping &&
+    ((status === 'ACTIVE' && hover) || status === 'IDLE') &&
+    selfUid !== uid;
+
   return (
-    <div className="flex items-center h-6">
+    <div
+      className={`flex items-center h-6 ${pingSent ? 'shake' : ''}`}
+      onMouseEnter={() => {
+        setHover(true);
+      }}
+      onMouseLeave={() => {
+        setHover(false);
+      }}
+    >
       <StatusIndicator status={status} />
       <div className={`px-2 ${nameClass}`}>{userDoc?.displayName ?? '...'}</div>
       <div className="text-gray-400">
@@ -90,28 +73,35 @@ function RoomUser({ ping, currentRoomId, roomId, uid, connectionState }) {
         ) : null}
       </div>
 
-      {!!ping ? (
+      {showPingButton ? (
         <div
-          className="p-1 text-gray-600 rounded focus:outline-none hover:bg-gray-200 active:bg-gray-300"
-          onClick={() => {
+          className="p-1 text-gray-500 rounded focus:outline-none hover:bg-gray-200 active:bg-gray-300"
+          onClick={(e) => {
+            e.stopPropagation();
             ping(uid);
             setPingSent(true);
           }}
         >
-          {status === 'IDLE' ? <BellIcon width={18} height={18} /> : null}
+          <BellIcon width={18} height={18} />
         </div>
       ) : null}
 
-      <PingSentToast
+      {/*<Toast
         open={pingSent}
         setOpen={setPingSent}
-        name={userDoc?.displayName}
-      />
+        text={`Pinged ${userDoc?.displayName}`}
+      />*/}
     </div>
   );
 }
 
-function RoomUsers({ currentRoomId, roomId, roomUsers, connectionStates }) {
+function RoomUsers({
+  currentRoomId,
+  roomId,
+  roomUsers,
+  connectionStates,
+  ping,
+}) {
   const userIds = useMemo(() => Object.keys(roomUsers), [roomUsers]);
   return userIds.map((uid) => (
     <Suspense key={uid} fallback={null}>
@@ -120,12 +110,13 @@ function RoomUsers({ currentRoomId, roomId, roomUsers, connectionStates }) {
         roomId={roomId}
         uid={uid}
         connectionState={connectionStates[uid]}
+        ping={ping}
       />
     </Suspense>
   ));
 }
 
-function Room({ roomId, currentRoomId, connectionStates, joinRoom }) {
+function Room({ roomId, currentRoomId, connectionStates, joinRoom, ping }) {
   const outputDevice = useRecoilValue(audioOutputAtom);
   const join = useCallback(async () => {
     const success = await joinRoom(roomId);
@@ -187,6 +178,7 @@ function Room({ roomId, currentRoomId, connectionStates, joinRoom }) {
           roomId={roomId}
           roomUsers={roomUsers}
           connectionStates={connectionStates}
+          ping={ping}
         />
       </div>
 
@@ -293,6 +285,7 @@ export function RoomList({
           connectionStates={connectionStates}
           leaveRoom={leaveRoom}
           joinRoom={joinRoom}
+          ping={ping}
         />
       ))}
       <SectionLabel className="flex-1 mt-4 mb-1">Inactive</SectionLabel>
