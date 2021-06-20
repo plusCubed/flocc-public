@@ -47,6 +47,10 @@ if (env.MODE === 'development') {
     .catch((e) => console.error('Failed install extension:', e));
 }
 
+if (process.platform === 'win32') {
+  app.setAppUserModelId(app.name);
+}
+
 let mainWindow: BrowserWindow | null = null;
 let tray;
 let isQuiting = false;
