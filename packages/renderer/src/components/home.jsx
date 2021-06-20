@@ -178,16 +178,13 @@ function usePing(socket, database) {
       const text = `${name} pinged you!`;
       playSound(pingedSound, outputDevice);
 
-      const seen = !document['hidden'];
+      const seen = !document.hasFocus();
 
-      /*let notification = null;
+      let notification = null;
       if (!seen) {
         notification = new Notification(text, {
           silent: true,
         });
-      }*/
-
-      if (!seen) {
         electronApi().sendSync('flash');
       }
 
@@ -198,7 +195,7 @@ function usePing(socket, database) {
 
       setTimeout(() => {
         if (seen) {
-          /*notification?.close();*/
+          notification?.close();
           setIncomingPings((pings) => {
             // remove first instance of the text
             const idx = pings.findIndex((p) => p.startsWith(text));
