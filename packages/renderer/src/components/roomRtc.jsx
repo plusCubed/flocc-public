@@ -117,12 +117,22 @@ export function RoomRtc({ socket, mute, onConnectionStatesChange }) {
     };
   }, [peerUids, mute, inputDevice]);
 
-  // update socket
+  // set up signal handler
   useEffect(() => {
-    for (const peer of Object.values(peers.current)) {
-      peer.updateSocket(socket);
+    const handleSignal = (obj) => {
+      socket.emit('signal', obj);
+    };
+    const peerArr = Object.values(peers.current);
+
+    for (const peer of peerArr) {
+      peer.on('signal', handleSignal);
     }
-  }, [socket]);
+    return () => {
+      for (const peer of peerArr) {
+        peer.off('signal', handleSignal);
+      }
+    };
+  }, [socket, peerUids]);
 
   useEffect(() => {
     onConnectionStatesChange(peerConnectionStates);
@@ -138,7 +148,7 @@ export function RoomRtc({ socket, mute, onConnectionStatesChange }) {
       const polite = uid < peerUid;
       console.info(`addPeer ${peerUid}, polite:`, polite);
 
-      const peer = new Peer(peerUid, polite, socket);
+      const peer = new Peer(peerUid, polite);
 
       peer.on('stream', (inboundStream) => {
         setPeerStreams((peerStreams) => ({
@@ -161,7 +171,7 @@ export function RoomRtc({ socket, mute, onConnectionStatesChange }) {
         playSound(joinedSound, outputDevice);
       }
     },
-    [outputDevice, socket, uid]
+    [outputDevice, uid]
   );
   useSocketListener(socket, 'addPeer', addPeer);
 

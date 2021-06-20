@@ -28,12 +28,11 @@ export class Peer extends Mitt {
   // https://w3c.github.io/webrtc-pc/#perfect-negotiation-example
   // https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API/Perfect_negotiation
 
-  constructor(peerUid, polite, socket) {
+  constructor(peerUid, polite) {
     super();
     this.pc = new RTCPeerConnection({
       iceServers: ICE_SERVERS,
     });
-    this.socket = socket;
     this.peerUid = peerUid;
     this.polite = polite;
 
@@ -60,7 +59,7 @@ export class Peer extends Mitt {
     this.pc.onicecandidate = (event) => {
       console.info(`[${this.peerUid}] send ice candidate`);
       if (event.candidate) {
-        this.socket.emit('signal', {
+        this.emit('signal', {
           peerUid: this.peerUid,
           data: {
             candidate: event.candidate.toJSON(),
@@ -89,7 +88,7 @@ export class Peer extends Mitt {
         this.makingOffer = true;
         await this.pc.setLocalDescription();
         console.info(`[${this.peerUid}] send session description offer`);
-        this.socket.emit('signal', {
+        this.emit('signal', {
           peerUid: this.peerUid,
           data: {
             sdp: this.pc.localDescription.toJSON(),
@@ -101,10 +100,6 @@ export class Peer extends Mitt {
         this.makingOffer = false;
       }
     };
-  }
-
-  updateSocket(socket) {
-    this.socket = socket;
   }
 
   async processDescription(description) {
@@ -128,7 +123,7 @@ export class Peer extends Mitt {
     if (description.type === 'offer') {
       await this.pc.setLocalDescription();
       console.info(`[${this.peerUid}] send session description answer`);
-      this.socket.emit('signal', {
+      this.emit('signal', {
         peerUid: this.peerUid,
         data: {
           sdp: this.pc.localDescription.toJSON(),
@@ -151,3 +146,5 @@ export class Peer extends Mitt {
     } catch (e) {}
   }
 }
+
+export class PeerManager {}
