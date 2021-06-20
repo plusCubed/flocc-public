@@ -7,6 +7,8 @@ import {
   session,
   systemPreferences,
   shell,
+  autoUpdater as electronAutoUpdater,
+  dialog,
 } from 'electron';
 import ElectronGoogleOAuth2 from '@getstation/electron-google-oauth2';
 import { TrayGenerator } from '/@/tray';
@@ -169,7 +171,46 @@ if (env.PROD) {
   app
     .whenReady()
     .then(() => import('electron-updater'))
-    .then(({ autoUpdater }) => autoUpdater.checkForUpdatesAndNotify())
+    .then(({ autoUpdater }) => {
+      electronAutoUpdater.on('before-quit-for-update', (e) => {
+        isQuiting = true;
+      });
+      autoUpdater.on(
+        'update-downloaded',
+        (event, releaseNotes, releaseName) => {
+          const dialogOpts = {
+            type: 'info',
+            buttons: ['Restart', 'Later'],
+            title: 'Application Update',
+            icon: join(__dirname, '..', 'assets', 'icon.png'),
+            message: releaseName,
+            detail:
+              'A new version has been downloaded. Restart to apply the update.',
+          };
+
+          dialog.showMessageBox(dialogOpts).then((returnValue) => {
+            if (returnValue.response === 0) autoUpdater.quitAndInstall();
+          });
+        }
+      );
+      autoUpdater.on('error', (e: Error) => {
+        console.error('There was a problem updating the application', e);
+        const dialogOpts = {
+          type: 'info',
+          title: 'Error: Application Update',
+          icon: join(__dirname, '..', 'assets', 'icon.png'),
+          message: 'Update error',
+          detail: 'There was a problem updating Flocc: ' + e.toString(),
+        };
+        dialog.showMessageBox(dialogOpts);
+      });
+
+      function checkUpdate() {
+        autoUpdater.checkForUpdates();
+        setTimeout(checkUpdate, 1000 * 60 * 5); // every 5 minutes
+      }
+      checkUpdate();
+    })
     .catch((e) => console.error('Failed check updates:', e));
 }
 
