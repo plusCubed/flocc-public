@@ -7,7 +7,7 @@ const apiKey = 'electron';
 const api: ElectronApi = {
   sendSync: (channel, data) => {
     // whitelist channels
-    const validChannels = ['version'];
+    const validChannels = ['version', 'flash'];
     if (validChannels.includes(channel)) {
       return ipcRenderer.sendSync(channel, data);
     }

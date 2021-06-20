@@ -13,6 +13,7 @@ import {
 import { useSocket, useSocketListener } from '../hooks/useSocket';
 import { useSocketRoom } from '../hooks/useSocketRoom';
 import { useUid } from '../hooks/useUid';
+import { electronApi } from '../util/electronApi';
 import { playSound } from '../util/playSound';
 
 import { FriendsDropdown } from './friendsDropdown';
@@ -179,17 +180,25 @@ function usePing(socket, database) {
 
       const seen = !document['hidden'];
 
-      let notification = null;
+      /*let notification = null;
       if (!seen) {
         notification = new Notification(text, {
           silent: true,
         });
+      }*/
+
+      if (!seen) {
+        electronApi().sendSync('flash');
       }
 
       setJustPinged(true);
+      setIncomingPings((pings) => {
+        return [...pings, text];
+      });
+
       setTimeout(() => {
         if (seen) {
-          notification?.close();
+          /*notification?.close();*/
           setIncomingPings((pings) => {
             // remove first instance of the text
             const idx = pings.findIndex((p) => p.startsWith(text));
@@ -199,10 +208,6 @@ function usePing(socket, database) {
           });
         }
       }, 5000);
-
-      setIncomingPings((pings) => {
-        return [...pings, text];
-      });
     },
     [database, outputDevice]
   );

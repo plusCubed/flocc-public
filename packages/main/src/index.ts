@@ -263,3 +263,17 @@ ipcMain.on('ask-for-media-access', async (event, mediaType) => {
 ipcMain.on('version', (event) => {
   event.returnValue = app.getVersion();
 });
+
+ipcMain.on('flash', (event) => {
+  if (process.platform === 'darwin') {
+    const bounceId = app.dock.bounce();
+    mainWindow.once('focus', () => app.dock.cancelBounce(bounceId));
+  } else {
+    mainWindow.flashFrame(true);
+    setTimeout(() => {
+      mainWindow.flashFrame(false);
+    }, 2000);
+    mainWindow.once('focus', () => mainWindow.flashFrame(false));
+  }
+  event.returnValue = true;
+});
