@@ -1,6 +1,7 @@
 import { join } from 'path';
 import type { BrowserWindow } from 'electron';
 import { app, Tray, Menu } from 'electron';
+import { captureException } from '@sentry/electron/dist/main';
 
 export class TrayGenerator {
   private mainWindow: BrowserWindow;
@@ -42,8 +43,11 @@ export class TrayGenerator {
         label: 'Check for Updates',
         click: () => {
           import('electron-updater')
-            .then(({ autoUpdater }) => autoUpdater.checkForUpdatesAndNotify())
-            .catch((e) => console.error('Failed check updates:', e));
+            .then(({ autoUpdater }) => autoUpdater.checkForUpdates())
+            .catch((e) => {
+              captureException(e);
+              console.error('Failed check updates:', e);
+            });
         },
       },
       {

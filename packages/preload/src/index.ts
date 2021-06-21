@@ -1,5 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
+import { init } from '@sentry/electron/dist/renderer';
+
+init({
+  dsn: 'https://817efb9fe22b4900ad01c6a9cd2a17cf@o604937.ingest.sentry.io/5744711',
+  enabled: import.meta.env.PROD,
+  environment: import.meta.env.MODE,
+});
+
 const apiKey = 'electron';
 /**
  * @see https://github.com/electron/electron/issues/21437#issuecomment-573522360

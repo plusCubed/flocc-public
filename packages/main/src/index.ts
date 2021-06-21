@@ -15,6 +15,8 @@ import { TrayGenerator } from '/@/tray';
 import ytsr from 'ytsr';
 import Positioner from 'electron-positioner';
 import isFirstRun from 'electron-first-run';
+import { autoUpdater } from 'electron-updater';
+import { init, captureException } from '@sentry/electron/dist/main';
 import googleOAuthConfig from './secrets/googleOAuthConfig';
 
 const isSingleInstance = app.requestSingleInstanceLock();
@@ -31,6 +33,12 @@ if (!isSingleInstance) {
  * @see https://github.com/microsoft/TypeScript/issues/41468#issuecomment-727543400
  */
 const env = import.meta.env;
+
+init({
+  dsn: 'https://817efb9fe22b4900ad01c6a9cd2a17cf@o604937.ingest.sentry.io/5744711',
+  enabled: env.PROD,
+  environment: env.MODE,
+});
 
 // Install "React devtools"
 if (env.MODE === 'development') {
@@ -168,14 +176,16 @@ app.on('activate', () => {
 app
   .whenReady()
   .then(createWindow)
-  .catch((e) => console.error('Failed create window:', e));
+  .catch((e) => {
+    captureException(e);
+    console.error('Failed create window:', e);
+  });
 
 // Auto-updates
 if (env.PROD) {
   app
     .whenReady()
-    .then(() => import('electron-updater'))
-    .then(({ autoUpdater }) => {
+    .then(() => {
       electronAutoUpdater.on('before-quit-for-update', (e) => {
         isQuiting = true;
       });
@@ -193,20 +203,16 @@ if (env.PROD) {
           };
 
           dialog.showMessageBox(dialogOpts).then((returnValue) => {
-            if (returnValue.response === 0) autoUpdater.quitAndInstall();
+            if (returnValue.response === 0) {
+              isQuiting = true;
+              autoUpdater.quitAndInstall();
+            }
           });
         }
       );
       autoUpdater.on('error', (e: Error) => {
         console.error('There was a problem updating the application', e);
-        const dialogOpts = {
-          type: 'info',
-          title: 'Error: Application Update',
-          icon: join(__dirname, '..', 'assets', 'icon.png'),
-          message: 'Update error',
-          detail: 'There was a problem updating Flocc: ' + e.toString(),
-        };
-        dialog.showMessageBox(dialogOpts);
+        captureException(e);
       });
 
       function checkUpdate() {
@@ -251,6 +257,7 @@ ipcMain.on('ytsr', async (event, query, options) => {
     const searchResults = await ytsr(filter.url, options);
     event.reply('ytsr-response', null, searchResults);
   } catch (e) {
+    captureException(e);
     event.reply('ytsr-response', e, null);
   }
 });
@@ -260,6 +267,7 @@ ipcMain.on('ask-for-media-access', async (event, mediaType) => {
     const result = await systemPreferences.askForMediaAccess(mediaType);
     event.reply('ask-for-media-access-response', null, result);
   } catch (e) {
+    captureException(e);
     event.reply('ask-for-media-access-response', e, null);
   }
 });

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
+import { captureException } from '@sentry/electron/dist/renderer';
 import { useRecoilValue } from 'recoil';
 
 import joinedSound from '../../assets/sounds/joined.wav';
@@ -86,6 +87,7 @@ export function RoomRtc({ socket, mute, onConnectionStatesChange }) {
             stream: await getMicStream(inputDevice),
           };
         } catch (err) {
+          captureException(err);
           alert(err);
           micStreamState.current = null;
         }
@@ -106,6 +108,7 @@ export function RoomRtc({ socket, mute, onConnectionStatesChange }) {
           console.info(`[${peer.peerUid}] replace mic track`);
           senders[0].replaceTrack(micTrack).catch((err) => {
             console.error(err);
+            captureException(err);
           });
         }
       }
@@ -217,6 +220,7 @@ export function RoomRtc({ socket, mute, onConnectionStatesChange }) {
         const description = new RTCSessionDescription(data.sdp);
         peer.processDescription(description).catch((err) => {
           console.error(err);
+          captureException(err);
         });
       }
 
@@ -224,6 +228,7 @@ export function RoomRtc({ socket, mute, onConnectionStatesChange }) {
         const candidate = new RTCIceCandidate(data.candidate);
         peer.processCandidate(candidate).catch((err) => {
           console.error(err);
+          captureException(err);
         });
       }
     },

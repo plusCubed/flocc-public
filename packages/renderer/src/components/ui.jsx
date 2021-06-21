@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 
+import { captureException } from '@sentry/electron/dist/renderer';
+
 export function Select({ children, className, ...rest }) {
   return (
     <select
@@ -46,6 +48,7 @@ export function Audio({ srcObject, sinkId, ...rest }) {
         console.log(`Success, audio output device attached: ${sinkId}`);
       })
       .catch((error) => {
+        captureException(error);
         let errorMessage = error;
         if (error.name === 'SecurityError') {
           errorMessage = `You need to use HTTPS for selecting audio output device: ${error}`;

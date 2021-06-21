@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState, Suspense } from 'react';
 
+import { captureException } from '@sentry/electron/dist/renderer';
 import { useAuth, useDatabase, useUser } from 'reactfire';
 import { useRecoilValue } from 'recoil';
 
@@ -110,7 +111,10 @@ function VisibilityListener({
             console.log('idle');
             socket.emit('idle');
             if (roomUserCount === 1) {
-              leaveRoom().catch((e) => console.error(e));
+              leaveRoom().catch((e) => {
+                console.error(e);
+                captureException(e);
+              });
             }
           } else {
             console.log('not idling: more than 1 person in room');

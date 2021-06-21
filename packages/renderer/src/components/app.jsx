@@ -1,16 +1,10 @@
 import React, { Suspense, useEffect } from 'react';
 
-/*import * as Sentry from '@sentry/electron';*/
+import { init } from '@sentry/electron/dist/renderer';
 import isElectron from 'is-electron';
-import {
-  AuthCheck,
-  FirebaseAppProvider,
-  preloadDatabase,
-  useAuth,
-} from 'reactfire';
+import { AuthCheck, FirebaseAppProvider, useAuth } from 'reactfire';
 import { RecoilRoot } from 'recoil';
 
-import { isDevelopment } from '../constants/isDevelopment';
 import firebaseConfig from '../secrets/firebaseConfig';
 
 import { ErrorBoundary } from './errorBoundary';
@@ -23,11 +17,11 @@ function ScreenCenter({ children }) {
   );
 }
 
-/*if (!isDevelopment) {
-  Sentry.init({
-    dsn: 'https://817efb9fe22b4900ad01c6a9cd2a17cf@o604937.ingest.sentry.io/5744711',
-  });
-}*/
+init({
+  dsn: 'https://817efb9fe22b4900ad01c6a9cd2a17cf@o604937.ingest.sentry.io/5744711',
+  enabled: import.meta.env.PROD,
+  environment: import.meta.env.MODE,
+});
 
 /*if (isDevelopment) {
   firebaseConfig.databaseURL = 'http://localhost:9000/?ns=floccapp';
