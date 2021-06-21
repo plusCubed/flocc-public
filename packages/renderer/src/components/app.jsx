@@ -1,6 +1,6 @@
 import React, { Suspense, useEffect } from 'react';
 
-import { init } from '@sentry/electron/dist/renderer';
+import { init } from '@sentry/electron/esm/renderer';
 import isElectron from 'is-electron';
 import { AuthCheck, FirebaseAppProvider, useAuth } from 'reactfire';
 import { RecoilRoot } from 'recoil';

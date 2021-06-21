@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
-import { captureException } from '@sentry/electron/dist/renderer';
+import { captureException } from '@sentry/electron/esm/renderer';
 import { useRecoilValue } from 'recoil';
 
 import joinedSound from '../../assets/sounds/joined.wav';

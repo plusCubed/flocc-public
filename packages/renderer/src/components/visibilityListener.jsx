@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 
-import { captureException } from '@sentry/electron/dist/renderer';
+import { captureException } from '@sentry/electron/esm/renderer';
 import { useDatabase } from 'reactfire';
 
 import { isDevelopment } from '../constants/isDevelopment';

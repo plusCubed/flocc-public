@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
-import { captureException } from '@sentry/electron/dist/renderer';
+import { captureException } from '@sentry/electron/esm/renderer';
 
 export function Select({ children, className, ...rest }) {
   return (
