@@ -1,7 +1,7 @@
 {
   "name": "flocc",
   "productName": "Flocc",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "description": "Flocc",
   "private": true,
   "engines": {
@@ -88,8 +88,8 @@
     "firebase": "8.6.3",
     "is-electron": "^2.2.0",
     "mitt": "^2.1.0",
-    "react": "^18.0.0-alpha-e6be2d531",
-    "react-dom": "^18.0.0-alpha-e6be2d531",
+    "react": "^18.0.0-alpha-568dc3532",
+    "react-dom": "^18.0.0-alpha-568dc3532",
     "react-player": "^2.9.0",
     "react-promise-suspense": "^0.3.3",
     "reactfire": "^3.0.0-rc.0",
