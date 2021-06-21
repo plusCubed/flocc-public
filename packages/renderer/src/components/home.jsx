@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useState, Suspense } from 'react';
 import { useAuth, useDatabase, useUser } from 'reactfire';
 import { useRecoilValue } from 'recoil';
 
+import Icon from '../../assets/icon.png';
 import pingedSound from '../../assets/sounds/nudge.mp3';
 import { audioOutputAtom } from '../atoms/audioDeviceAtom';
 import { isDevelopment } from '../constants/isDevelopment';
@@ -178,11 +179,12 @@ function usePing(socket, database) {
       const text = `${name} pinged you!`;
       playSound(pingedSound, outputDevice);
 
-      const seen = !document.hasFocus();
+      const seen = document.hasFocus();
 
       let notification = null;
       if (!seen) {
         notification = new Notification(text, {
+          icon: Icon,
           silent: true,
         });
         electronApi().sendSync('flash');
