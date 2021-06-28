@@ -1,8 +1,13 @@
-import React, { Suspense, useEffect } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 
 import { init } from '@sentry/electron/esm/renderer';
 import isElectron from 'is-electron';
-import { AuthCheck, FirebaseAppProvider, useAuth } from 'reactfire';
+import {
+  AuthCheck,
+  FirebaseAppProvider,
+  useAuth,
+  useDatabase,
+} from 'reactfire';
 import { RecoilRoot } from 'recoil';
 
 import firebaseConfig from '../secrets/firebaseConfig';
@@ -27,8 +32,6 @@ init({
   firebaseConfig.databaseURL = 'http://localhost:9000/?ns=floccapp';
 }*/
 function App() {
-  // preloadDatabase();
-
   const auth = useAuth();
   useEffect(() => {
     if (!isElectron()) {
@@ -42,11 +45,66 @@ function App() {
         });
     }
   }, [auth]);
-  return (
-    <AuthCheck fallback={<SignInForm />}>
-      <Home />
-    </AuthCheck>
-  );
+  return <Auth fallback={<SignInForm />}></Auth>;
+}
+
+function Auth({ fallback }) {
+  const [authState, setAuthState] = useState({ status: 'loading' });
+
+  const auth = useAuth();
+  const database = useDatabase();
+  useEffect(() => {
+    return auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        const token = await user.getIdToken();
+        const idTokenResult = await user.getIdTokenResult();
+        const hasuraClaim =
+          idTokenResult.claims['https://hasura.io/jwt/claims'];
+
+        if (hasuraClaim) {
+          setAuthState({ status: 'in', user, token });
+        } else {
+          // Check if refresh is required.
+          const metadataRef = database.ref(
+            'metadata/' + user.uid + '/refreshTime'
+          );
+
+          metadataRef.on('value', async (data) => {
+            if (!data.exists) return;
+            // Force refresh to pick up the latest custom claims changes.
+            const token = await user.getIdToken(true);
+            setAuthState({ status: 'in', user, token });
+          });
+        }
+      } else {
+        setAuthState({ status: 'out' });
+      }
+    });
+  }, [auth, database]);
+
+  const signOut = async () => {
+    try {
+      setAuthState({ status: 'loading' });
+      await auth.signOut();
+      setAuthState({ status: 'out' });
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  let content;
+  if (authState.status === 'loading') {
+    content = null;
+  } else {
+    content = (
+      <>
+        {authState.status === 'in' ? <Home /> : fallback}
+        <App authState={authState} authSignOut={signOut} />
+      </>
+    );
+  }
+
+  return <div className="auth">{content}</div>;
 }
 
 export function AppWrapper() {

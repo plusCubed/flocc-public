@@ -25,7 +25,7 @@ const SOCKET_ENDPOINT =
     ? 'http://localhost:3010'
     : 'https://server.flocc.app:8443';
 
-export function Home() {
+export function Home({ authState, authSignOut }) {
   const database = useDatabase();
   const user = useUser().data;
   const { uid } = user;
@@ -44,11 +44,10 @@ export function Home() {
     database
   );
 
-  const auth = useAuth();
   const signOut = useCallback(async () => {
     await leaveRoom();
-    await auth.signOut();
-  }, [auth, leaveRoom]);
+    authSignOut();
+  }, [authSignOut, leaveRoom]);
 
   const [connectionStates, setConnectionStates] = useState({});
 
