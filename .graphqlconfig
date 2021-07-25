@@ -1,15 +1,14 @@
 {
-  "name": "Flocc Hasura",
-  "schemaPath": "schema.graphql",
+  "name": "GraphQL Schema",
+  "schemaPath": "graphql.schema.json",
   "extensions": {
     "endpoints": {
       "Default GraphQL Endpoint": {
         "url": "https://floccapp.hasura.app/v1/graphql",
         "headers": {
-          "user-agent": "Webstorm GraphQL",
-          "x-hasura-admin-secret": "5i5QVQlqIMnqXULX8WBBstl4QEj1HLUKcP6ZluA4S095DI7vDMy16mWPs7mlDKyR"
+          "user-agent": "JS GraphQL"
         },
-        "introspect": true
+        "introspect": false
       }
     }
   }

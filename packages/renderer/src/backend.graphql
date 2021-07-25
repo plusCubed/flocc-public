@@ -1,0 +1,7 @@
+query GetUser($id: String!) {
+  users_by_pk(id: $id) {
+    name
+    status
+    mute
+  }
+}

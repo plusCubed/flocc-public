@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
 
 import { init } from '@sentry/electron/esm/renderer';
 import isElectron from 'is-electron';
@@ -7,8 +7,10 @@ import {
   FirebaseAppProvider,
   useAuth,
   useDatabase,
+  useUser,
 } from 'reactfire';
 import { RecoilRoot } from 'recoil';
+import { createClient, Provider as UrqlProvider } from 'urql';
 
 import firebaseConfig from '../secrets/firebaseConfig';
 
@@ -45,66 +47,69 @@ function App() {
         });
     }
   }, [auth]);
-  return <Auth fallback={<SignInForm />}></Auth>;
+  return (
+    <AuthCheck fallback={<SignInForm />}>
+      <HasuraProvider fallback={<ScreenCenter>Loading Hasura...</ScreenCenter>}>
+        <Home />
+      </HasuraProvider>
+    </AuthCheck>
+  );
 }
 
-function Auth({ fallback }) {
-  const [authState, setAuthState] = useState({ status: 'loading' });
+function useUrqlClient(token) {
+  return useMemo(() => {
+    return createClient({
+      url: 'https://floccapp.hasura.app/v1/graphql',
+      fetchOptions: () => {
+        return {
+          headers: { authorization: token ? `Bearer ${token}` : '' },
+        };
+      },
+      suspense: true,
+    });
+  }, [token]);
+}
+
+function HasuraProvider({ fallback, children }) {
+  const [token, setToken] = useState('');
 
   const auth = useAuth();
   const database = useDatabase();
+  const user = useUser().data;
   useEffect(() => {
-    return auth.onAuthStateChanged(async (user) => {
-      if (user) {
-        const token = await user.getIdToken();
-        const idTokenResult = await user.getIdTokenResult();
-        const hasuraClaim =
-          idTokenResult.claims['https://hasura.io/jwt/claims'];
+    async function updateToken() {
+      const token = await user.getIdToken();
+      const idTokenResult = await user.getIdTokenResult();
+      const hasuraClaim = idTokenResult.claims['https://hasura.io/jwt/claims'];
 
-        if (hasuraClaim) {
-          setAuthState({ status: 'in', user, token });
-        } else {
-          // Check if refresh is required.
-          const metadataRef = database.ref(
-            'metadata/' + user.uid + '/refreshTime'
-          );
-
-          metadataRef.on('value', async (data) => {
-            if (!data.exists) return;
-            // Force refresh to pick up the latest custom claims changes.
-            const token = await user.getIdToken(true);
-            setAuthState({ status: 'in', user, token });
-          });
-        }
+      if (hasuraClaim) {
+        setToken(token);
       } else {
-        setAuthState({ status: 'out' });
+        // Check if refresh is required.
+        const metadataRef = database.ref(
+          'metadata/' + user.uid + '/refreshTime'
+        );
+
+        metadataRef.on('value', async (data) => {
+          if (!data.exists) return;
+          // Force refresh to pick up the latest custom claims changes.
+          const token = await user.getIdToken(true);
+          setToken(token);
+        });
       }
-    });
-  }, [auth, database]);
 
-  const signOut = async () => {
-    try {
-      setAuthState({ status: 'loading' });
-      await auth.signOut();
-      setAuthState({ status: 'out' });
-    } catch (error) {
-      console.log(error);
+      console.log(token);
     }
-  };
+    updateToken().catch((e) => console.error(e));
+  }, [auth, database, user]);
 
-  let content;
-  if (authState.status === 'loading') {
-    content = null;
-  } else {
-    content = (
-      <>
-        {authState.status === 'in' ? <Home /> : fallback}
-        <App authState={authState} authSignOut={signOut} />
-      </>
-    );
-  }
+  const client = useUrqlClient(token);
 
-  return <div className="auth">{content}</div>;
+  return (
+    <Suspense fallback={fallback}>
+      <UrqlProvider value={client}>{children}</UrqlProvider>
+    </Suspense>
+  );
 }
 
 export function AppWrapper() {
@@ -112,7 +117,7 @@ export function AppWrapper() {
     <ErrorBoundary fallback={<ScreenCenter>An error occurred</ScreenCenter>}>
       <FirebaseAppProvider firebaseConfig={firebaseConfig} suspense={true}>
         <RecoilRoot>
-          <Suspense fallback={<ScreenCenter>Loading...</ScreenCenter>}>
+          <Suspense fallback={<ScreenCenter>Loading app...</ScreenCenter>}>
             <App />
           </Suspense>
         </RecoilRoot>

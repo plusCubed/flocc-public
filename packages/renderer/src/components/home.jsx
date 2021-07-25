@@ -1,9 +1,10 @@
 import React, { Suspense, useCallback, useState } from 'react';
 
 import { useAuth, useDatabase, useUser } from 'reactfire';
+import { useQuery } from 'urql';
 
 import { isDevelopment } from '../constants/isDevelopment';
-import { useDatabaseObjectData } from '../hooks/useDatabase';
+import { useGetUserQuery } from '../generated/graphql';
 import { usePing } from '../hooks/usePing';
 import { useSocket } from '../hooks/useSocket';
 import { useSocketRoom } from '../hooks/useSocketRoom';
@@ -25,14 +26,12 @@ const SOCKET_ENDPOINT =
     ? 'http://localhost:3010'
     : 'https://server.flocc.app:8443';
 
-export function Home({ authState, authSignOut }) {
+export function Home() {
   const database = useDatabase();
   const user = useUser().data;
   const { uid } = user;
 
-  const displayName = useDatabaseObjectData(
-    database.ref(`users/${uid}/displayName`)
-  );
+  const { data } = useGetUserQuery({ variables: { id: uid } });
 
   const { socket, connected } = useSocket(SOCKET_ENDPOINT, user);
   const { roomId, joinRoom, leaveRoom, transitioningRef } = useSocketRoom(
@@ -44,19 +43,17 @@ export function Home({ authState, authSignOut }) {
     database
   );
 
+  const auth = useAuth();
   const signOut = useCallback(async () => {
     await leaveRoom();
-    authSignOut();
-  }, [authSignOut, leaveRoom]);
+    await auth.signOut();
+  }, [auth, leaveRoom]);
 
   const [connectionStates, setConnectionStates] = useState({});
 
-  const mute = useDatabaseObjectData(database.ref(`users/${uid}/mute`));
-  const status = useDatabaseObjectData(database.ref(`users/${uid}/status`));
-
   console.log('room id', roomId);
 
-  let pingToast;
+  /*let pingToast;
   if (incomingPings.length > 0) {
     const incomingPingMap = {};
     for (const p of incomingPings) {
@@ -70,7 +67,7 @@ export function Home({ authState, authSignOut }) {
     pingToast = <Toast text={totalText} dismiss={() => clearPings()} />;
   } else {
     pingToast = null;
-  }
+  }*/
 
   return (
     <div
@@ -95,8 +92,11 @@ export function Home({ authState, authSignOut }) {
       ) : (
         <div className="flex flex-col w-full h-full">
           <div className="flex items-center font-semibold">
-            <div>{displayName}</div>
-            <StatusIndicator status={status} className="ml-1" />
+            <div>{data?.users_by_pk.name}</div>
+            <StatusIndicator
+              status={data?.users_by_pk.status}
+              className="ml-1"
+            />
             <Suspense fallback={null}>
               <MuteButton roomId={roomId} socket={socket} />
             </Suspense>
@@ -123,11 +123,11 @@ export function Home({ authState, authSignOut }) {
           </div>
           <RoomRtc
             socket={socket}
-            mute={mute}
+            mute={data?.users_by_pk.mute}
             onConnectionStatesChange={setConnectionStates}
           />
 
-          {pingToast}
+          {/*{pingToast}*/}
 
           {roomId ? (
             <Suspense fallback={null}>

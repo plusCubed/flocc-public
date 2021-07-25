@@ -3,16 +3,10 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "/@/*": [
-        "./src/*"
-      ]
+      "/@/*": ["./src/*"]
     },
     "esModuleInterop": true
   },
-  "files": [
-    "src/index.ts"
-  ],
-  "include": [
-    "../../types/**/*.d.ts"
-  ],
+  "files": ["src/index.ts"],
+  "include": ["../../types/**/*.d.ts"]
 }

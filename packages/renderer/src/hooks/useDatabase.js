@@ -5,13 +5,13 @@ import { useDatabaseObjectData as useReactfireDatabaseObjectData } from 'reactfi
 import { useDatabaseListData as useReactfireDatabaseListData } from 'reactfire';
 
 export function useDatabaseObjectData(ref, options) {
-  const data = useReactfireDatabaseObjectData(ref, options).data;
+  const data = useReactfireDatabaseObjectData(ref, options).data ?? {};
   delete data['NO_ID_FIELD'];
   return data;
 }
 
 export function useDatabaseListData(ref, options) {
-  const data = useReactfireDatabaseListData(ref, options).data;
+  const data = useReactfireDatabaseListData(ref, options).data ?? [];
   delete data['NO_ID_FIELD'];
   return data;
 }
