@@ -5,3 +5,23 @@ query GetUser($id: String!) {
     mute
   }
 }
+
+mutation CreateRoom {
+  insert_rooms(
+    objects: {
+      locked: false
+      users: {
+        on_conflict: { constraint: users_pkey, update_columns: room_id }
+        data: {}
+      }
+    }
+  ) {
+    affected_rows
+    returning {
+      users {
+        id
+      }
+      id
+    }
+  }
+}

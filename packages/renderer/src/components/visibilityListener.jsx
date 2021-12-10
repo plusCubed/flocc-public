@@ -14,9 +14,9 @@ export function VisibilityListener({
   leaveRoom,
   clearPings,
 }) {
-  const database = useDatabase();
-  const roomUsers = useDatabaseListData(database.ref(`rooms/${roomId}/users`));
-  const roomUserCount = roomUsers.length; // reset visibility detection when room user count changes
+  //const database = useDatabase();
+  //const roomUsers = useDatabaseListData(database.ref(`rooms/${roomId}/users`));
+  //const roomUserCount = roomUsers.length; // reset visibility detection when room user count changes
 
   useEffect(() => {
     let idleTimeoutId = null;

@@ -27,31 +27,31 @@ const SOCKET_ENDPOINT =
     : 'https://server.flocc.app:8443';
 
 export function Home() {
-  const database = useDatabase();
+  //const database = useDatabase();
   const user = useUser().data;
   const { uid } = user;
 
   const { data } = useGetUserQuery({ variables: { id: uid } });
 
-  const { socket, connected } = useSocket(SOCKET_ENDPOINT, user);
-  const { roomId, joinRoom, leaveRoom, transitioningRef } = useSocketRoom(
-    socket,
-    connected
-  );
-  const { ping, incomingPings, clearPings, justPinged } = usePing(
-    socket,
-    database
-  );
+  // const { socket, connected } = useSocket(SOCKET_ENDPOINT, user);
+  // const { roomId, joinRoom, leaveRoom, transitioningRef } = useSocketRoom(
+  //   socket,
+  //   connected
+  // );
+  // const { ping, incomingPings, clearPings, justPinged } = usePing(
+  //   socket,
+  //   database
+  // );
 
   const auth = useAuth();
   const signOut = useCallback(async () => {
-    await leaveRoom();
+    // await leaveRoom();
     await auth.signOut();
-  }, [auth, leaveRoom]);
+  }, [auth /*, leaveRoom*/]);
 
   const [connectionStates, setConnectionStates] = useState({});
 
-  console.log('room id', roomId);
+  // console.log('room id', roomId);
 
   /*let pingToast;
   if (incomingPings.length > 0) {
@@ -72,7 +72,7 @@ export function Home() {
   return (
     <div
       className={`p-2 mx-auto w-full max-w-lg h-full ${
-        justPinged ? 'shake' : ''
+        /*justPinged ? 'shake' :*/ ''
       }`}
     >
       <Suspense fallback={null}>
@@ -85,57 +85,54 @@ export function Home() {
           clearPings={clearPings}
         />
       </Suspense>
-      {!connected ? (
+      {/* {!connected ? (
         <div className="flex justify-center items-center w-full h-full">
           Connecting to server...
         </div>
-      ) : (
-        <div className="flex flex-col w-full h-full">
-          <div className="flex items-center font-semibold">
-            <div>{data?.users_by_pk.name}</div>
-            <StatusIndicator
-              status={data?.users_by_pk.status}
-              className="ml-1"
-            />
-            <Suspense fallback={null}>
-              <MuteButton roomId={roomId} socket={socket} />
-            </Suspense>
-            <div className="flex-1" />
-            <FriendsDropdown />
-            <SettingsDropdown signOut={signOut} />
-          </div>
-          <div className="flex overflow-y-auto flex-col flex-1">
-            <div className="flex-1 mt-2">
-              <Suspense fallback={null}>
-                <RoomList
-                  currentRoomId={roomId}
-                  joinRoom={joinRoom}
-                  leaveRoom={leaveRoom}
-                  ping={ping}
-                  connectionStates={connectionStates}
-                />
-              </Suspense>
-            </div>
-          </div>
-          <div className="flex flex-row">
-            <div className="flex-1" />
-            <HelpPopup />
-          </div>
-          <RoomRtc
-            socket={socket}
-            mute={data?.users_by_pk.mute}
-            onConnectionStatesChange={setConnectionStates}
-          />
-
-          {/*{pingToast}*/}
-
-          {roomId ? (
-            <Suspense fallback={null}>
-              <Music currentRoomId={roomId} socket={socket} />
-            </Suspense>
-          ) : null}
+      ) : (*/}
+      <div className="flex flex-col w-full h-full">
+        <div className="flex items-center font-semibold">
+          <div>{data?.users_by_pk.name}</div>
+          <StatusIndicator status={data?.users_by_pk.status} className="ml-1" />
+          {/*<Suspense fallback={null}>
+            <MuteButton roomId={roomId} socket={socket} />
+          </Suspense>*/}
+          <div className="flex-1" />
+          <FriendsDropdown />
+          <SettingsDropdown signOut={signOut} />
         </div>
-      )}
+        <div className="flex overflow-y-auto flex-col flex-1">
+          <div className="flex-1 mt-2">
+            <Suspense fallback={null}>
+              {/* <RoomList
+                currentRoomId={roomId}
+                joinRoom={joinRoom}
+                leaveRoom={leaveRoom}
+                ping={ping}
+                connectionStates={connectionStates}
+              />*/}
+            </Suspense>
+          </div>
+        </div>
+        <div className="flex flex-row">
+          <div className="flex-1" />
+          <HelpPopup />
+        </div>
+        {/*<RoomRtc
+          socket={socket}
+          mute={data?.users_by_pk.mute}
+          onConnectionStatesChange={setConnectionStates}
+        />*/}
+
+        {/*{pingToast}*/}
+
+        {/* {roomId ? (
+          <Suspense fallback={null}>
+            <Music currentRoomId={roomId} socket={socket} />
+          </Suspense>
+        ) : null}*/}
+      </div>
+      {/* )}*/}
     </div>
   );
 }

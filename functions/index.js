@@ -3,14 +3,15 @@ const admin = require('firebase-admin');
 admin.initializeApp(functions.config().firebase);
 
 const fetch = require('node-fetch');
+const config = require('./config');
 
-const adminSecret = process.env.HASURA_ADMIN_SECRET;
-const hasuraEndpoint = process.env.HASURA_ENDPOINT;
+const adminSecret = config.HASURA_ADMIN_SECRET;
+const hasuraEndpoint = config.HASURA_ENDPOINT;
 
 const gql = (str) => str[0];
 
 const query = gql`
-  mutation MyMutation(
+  mutation (
     $status: user_status_enum
     $room_id: uuid
     $name: String
